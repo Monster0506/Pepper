@@ -469,8 +469,6 @@ class ExpressionEvaluator:
             return bool(left_val) and bool(right_val)
         elif operator == "#$#":
             return bool(left_val) or bool(right_val)
-        elif operator == "~@":
-            return not bool(left_val)
         elif operator == "&$$&":
             if isinstance(left_val, (int, float)) and isinstance(
                 right_val, (int, float)
