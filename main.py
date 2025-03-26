@@ -15,6 +15,7 @@ ELSE_KEYWORD = "ELSE"
 END_KEYWORD = "END"
 LOOP_END_KEYWORD = "LOOP_END"
 INPUT_KEYWORD = "INPUT"
+GOTO_KEYWORD = "GOTO"
 
 
 @dataclass
@@ -658,7 +659,30 @@ List Operations:
                 print(f"Processing line {line_number + 1}: {line}")
 
             try:
-                if "::(" in line:  # Function declaration
+
+                if line.startswith(GOTO_KEYWORD):
+                    # Handle GOTO statement with optional condition
+                    match = re.match(r"GOTO\s+(\d+)\s*;(.+)?", line)
+                    if not match:
+                        raise ValueError(f"Invalid GOTO statement: {line}")
+                    target_line = int(match.group(1))
+                    condition = match.group(2)
+
+                    if target_line < 1 or target_line > len(lines):
+                        raise ValueError(
+                            f"Invalid line number in GOTO: {target_line}")
+
+                    # If there's a condition, evaluate it
+                    if condition and condition.strip():
+                        should_jump = self.expression_evaluator.evaluate(
+                            condition.strip(), "bool")
+                        if not should_jump:
+                            line_number += 1
+                            continue
+
+                    line_number = target_line - 1  # Convert to 0-based index
+                    continue
+                elif "::(" in line:  # Function declaration
                     skip_lines = self.handle_function_declaration(
                         lines, line_number)
                     line_number += skip_lines
@@ -706,9 +730,11 @@ List Operations:
                             f"Invalid command: {line}. {ELIF_KEYWORD}, {ELSE_KEYWORD}, and {END_KEYWORD} are only valid inside an {IF_KEYWORD} block"
                         )
                 else:
+                    print("here")
                     raise ValueError(f"Invalid command: {line}")
 
             except ValueError as e:
+
                 print(f"Error on line {line_number + 1}: {e}")
                 return  # Or perhaps continue, depending on desired error handling
 
