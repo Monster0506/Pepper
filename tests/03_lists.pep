@@ -48,3 +48,12 @@ LET x:int = numbers [f] 50
 SHOW(x)
 REAS x = numbers [f] 100
 SHOW(x)
+
+
+SHOW(numbers)
+
+%% Random Item
+REAS x = numbers [?]
+SHOW(x)
+REAS x = numbers [?]
+SHOW(x)

@@ -2,6 +2,7 @@ import argparse
 import re
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
+import random
 
 # Constants for Keywords
 FOR_KEYWORD = "FOR"
@@ -14,7 +15,7 @@ ELIF_KEYWORD = "ELIF"
 ELSE_KEYWORD = "ELSE"
 END_KEYWORD = "END"
 LOOP_END_KEYWORD = "LOOP_END"
-INPUT_KEYWORD = "INPUT"
+INPUT_KEYWORD = "INPT"
 GOTO_KEYWORD = "GOTO"
 LABEL_KEYWORD = "LBL"
 
@@ -84,7 +85,7 @@ class ExpressionEvaluator:
 
         # Then try other evaluation methods
         evaluators = [
-            (r'INPUT\("([^"]*)"\)', self._evaluate_input),
+            (r'INPT\("([^"]*)"\)', self._evaluate_input),
             (r"([a-zA-Z_]\w*)\s*:>\s*(\w+)", self._evaluate_type_conversion),
             (r"\[.+\]", self._evaluate_list_literal),
             (
@@ -97,6 +98,7 @@ class ExpressionEvaluator:
                 self._evaluate_list_operation,
             ),
             (r"([a-zA-Z_]\w*)\s+\[l\]", self._evaluate_list_length),
+            (r"([a-zA-Z_]\w*)\s+\[\?\]", self._evaluate_list_random),
             (r"([a-zA-Z_]\w*)\s+\[i\]\s+(.+)", self._evaluate_list_indexing),
             (r"([a-zA-Z_]\w*)\s+\[f\]\s+(.+)", self._evaluate_list_finding),
         ]
@@ -109,6 +111,13 @@ class ExpressionEvaluator:
         # Try RPN evaluation for numeric expressions
         if expected_type in ("int", "float", None):
             try:
+                if "?" in expression:
+                    # Replace ? with random number and ensure proper RPN spacing
+                    parts = expression.split()
+                    for i, part in enumerate(parts):
+                        if "?" in part:
+                            parts[i] = str(random.random())
+                    expression = " ".join(parts)
                 result = self._evaluate_rpn(expression)
                 if expected_type == "int":
                     return int(result)
@@ -299,6 +308,12 @@ class ExpressionEvaluator:
         if self.debug:
             print(f" List length result: {length}")
         return length
+
+    def _evaluate_list_random(self, match, expected_type="int"):
+        list_name = match.group(1)
+        if not self._is_list_type(list_name):
+            raise ValueError(f"'{list_name}' is not a defined list.")
+        return random.choice(self.variables[list_name][0])
 
     def _evaluate_list_indexing(self, match, expected_type=None):
         """Evaluates list indexing operations."""
@@ -673,6 +688,7 @@ List Operations:
     [l]     - Get length
     [i]     - Get item at index
     [f]     - Find index of value
+    [?]     - Get random value from list
 """
         print(help_text)
 

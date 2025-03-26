@@ -47,3 +47,11 @@ LET x:int = text [f] "e"
 SHOW(x)
 REAS x = text [f] 100
 SHOW(x)
+
+
+%% Finding Items
+REAS x = text [?]
+SHOW(x)
+REAS x = text [?]
+SHOW(x)
+

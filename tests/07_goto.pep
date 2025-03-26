@@ -1,6 +1,6 @@
 %% SIMPLE GOTO EXAMPLE
 SHOW("Before jump")
-GOTO 5;
+GOTO 6;
 SHOW("This will be skipped")
 SHOW("This will be skipped too")
 SHOW("After jump")
