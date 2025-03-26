@@ -84,8 +84,8 @@ class ExpressionEvaluator:
             (r'INPUT\("([^"]*)"\)', self._evaluate_input),
             (r"([a-zA-Z_]\w*)\s*:>\s*(\w+)", self._evaluate_type_conversion),
             (r"\[.+\]", self._evaluate_list_literal),
-            (r"(.+)\s*([<>]=?|&&|&\$\$&)\s*(.+)",
-             self._evaluate_boolean_expression),
+            (r"(.+)\s*(@\$@|#\$#|[<>]=?|&&|&\$\$&)\s*(.+)", self._evaluate_boolean_expression),
+            (r"~@\s+(.+)", self._evaluate_boolean_expression),
             (
                 r'([a-zA-Z_]\w*)\s+("[^"]*"|\d+)\s+\[(a|r|n|p|P)\](?:\s+("[^"]*"|\d+))?',
                 self._evaluate_list_operation,
@@ -416,17 +416,23 @@ class ExpressionEvaluator:
         """Evaluates non-RPN boolean expressions."""
         if isinstance(match, str):
             expression = match
+
+            
         else:
+            if len(match.groups()) == 1:
+                sub_expr = match.group(1).strip()
+                result = self.evaluate(sub_expr, "bool")
+                return not result
             left_expression, operator, right_expression = match.groups()
             expression = f"{left_expression} {operator} {right_expression}"
-
+    
         if expression.lower() == "true":
             return True
         elif expression.lower() == "false":
             return False
-
-        match = re.match(r"(.+)\s*([<>]=?|&&|&\$\$&)\s*(.+)", expression)
-        if not match:
+        
+        match = re.match(r"(.+)\s*(@\$@|#\$#|[<>]=?|&&|&\$\$&)\s*(.+)", expression)
+        if not match: 
             raise ValueError(f"Invalid boolean expression: {expression}")
 
         left_expression, operator, right_expression = match.groups()
@@ -459,6 +465,12 @@ class ExpressionEvaluator:
             ):
                 return float(left_val) == float(right_val)
             return str(left_val) == str(right_val)
+        elif operator == "@$@":
+            return bool(left_val) and bool(right_val)
+        elif operator == "#$#":
+            return bool(left_val) or bool(right_val)
+        elif operator == "~@":
+            return not bool(left_val)
         elif operator == "&$$&":
             if isinstance(left_val, (int, float)) and isinstance(
                 right_val, (int, float)
@@ -759,7 +771,6 @@ List Operations:
                             f"Invalid command: {line}. {ELIF_KEYWORD}, {ELSE_KEYWORD}, and {END_KEYWORD} are only valid inside an {IF_KEYWORD} block"
                         )
                 else:
-                    print("here")
                     raise ValueError(f"Invalid command: {line}")
 
             except ValueError as e:
@@ -1120,7 +1131,6 @@ List Operations:
                 param_name, param_type = param_match.groups()
                 params.append((param_name, param_type))
 
-        print(params)
         # Collect function body
         body = []
         current_index = start_index + 1
@@ -1136,7 +1146,6 @@ List Operations:
                 self.functions[func_name] = Function(
                     func_name, params, body, return_type
                 )
-                print(len(body))
                 return len(body)
 
             body.append(line)
@@ -1154,7 +1163,6 @@ List Operations:
             raise ValueError(f"Invalid function call: {line}")
 
         args_str, func_name = match.groups()
-        print(match.groups())
 
         if func_name not in self.functions:
             raise ValueError(f"Undefined function: {func_name}")
