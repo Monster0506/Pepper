@@ -14,6 +14,7 @@ ELIF_KEYWORD = "ELIF"
 ELSE_KEYWORD = "ELSE"
 END_KEYWORD = "END"
 LOOP_END_KEYWORD = "LOOP_END"
+INPUT_KEYWORD = "INPUT"
 
 
 @dataclass
@@ -77,9 +78,11 @@ class ExpressionEvaluator:
 
         # Then try other evaluation methods
         evaluators = [
+            (r'INPUT\("([^"]*)"\)', self._evaluate_input),
             (r"([a-zA-Z_]\w*)\s*:>\s*(\w+)", self._evaluate_type_conversion),
             (r"\[.+\]", self._evaluate_list_literal),
-            (r"(.+)\s*([<>]=?|&&|&\$\$&)\s*(.+)", self._evaluate_boolean_expression),
+            (r"(.+)\s*([<>]=?|&&|&\$\$&)\s*(.+)",
+             self._evaluate_boolean_expression),
             (
                 r'([a-zA-Z_]\w*)\s+("[^"]*"|\d+)\s+\[(a|r|n|p|P)\](?:\s+("[^"]*"|\d+))?',
                 self._evaluate_list_operation,
@@ -109,6 +112,29 @@ class ExpressionEvaluator:
             return literal_result
 
         raise ValueError(f"Unable to evaluate expression: {expression}")
+
+    def _evaluate_input(self, match, expected_type):
+        """Evaluates input expressions."""
+        prompt = match.group(1)
+        user_input = input(prompt + " ")
+
+        try:
+            if expected_type == "int":
+                return int(user_input)
+            elif expected_type == "float":
+                return float(user_input)
+            elif expected_type == "bool":
+                return user_input.lower() == "true"
+            elif expected_type == "string":
+                return user_input
+            elif expected_type == "list":
+                # Parse input as comma-separated values
+                return [x.strip() for x in user_input.split(",")]
+            else:
+                return user_input
+        except ValueError:
+            raise ValueError(
+                f"Cannot convert input '{user_input}' to type {expected_type}")
 
     def _evaluate_literal(self, expression, expected_type):
         """Evaluates literal values with automatic type conversion"""
@@ -152,7 +178,8 @@ class ExpressionEvaluator:
 
     def _evaluate_string_concatenation(self, expression):
         """Evaluates string concatenation expressions."""
-        print(f"String concat vars {self.variables}")
+        if self.debug:
+            print(f"String concat vars {self.variables}")
         parts = re.split(r"\s*\+\s*", expression)
         result = ""
         for part in parts:
@@ -170,7 +197,8 @@ class ExpressionEvaluator:
                     value = self.evaluate(part, None)
                     result += str(value)
                 except ValueError:
-                    raise ValueError(f"Invalid part in string concatenation: {part}")
+                    raise ValueError(
+                        f"Invalid part in string concatenation: {part}")
 
         return result
 
@@ -221,7 +249,8 @@ class ExpressionEvaluator:
                     list_value.insert(position - 1, value)
                 else:  # string
                     list_value = (
-                        list_value[: position - 1] + value + list_value[position - 1 :]
+                        list_value[: position - 1] +
+                        value + list_value[position - 1:]
                     )
                 return list_value
             except (ValueError, TypeError):
@@ -240,7 +269,8 @@ class ExpressionEvaluator:
                     index = list_value.index(value)
                     list_value[index] = new_value
                 except ValueError:
-                    raise ValueError(f"Value {value} not found in list {list_name}")
+                    raise ValueError(
+                        f"Value {value} not found in list {list_name}")
             else:  # string
                 if operation == "p":
                     # Replace only first occurrence
@@ -289,7 +319,8 @@ class ExpressionEvaluator:
                     value, type(value).__name__.lower(), target_type
                 )
             except ValueError:
-                raise ValueError(f"Variable or expression '{var_name}' not defined.")
+                raise ValueError(
+                    f"Variable or expression '{var_name}' not defined.")
 
         source_value, source_type = self.variables[var_name]
         return self._convert_type(source_value, source_type, target_type)
@@ -319,7 +350,8 @@ class ExpressionEvaluator:
                     )
             elif token in ("+", "-", "*", "/", "%"):
                 if len(stack) < 2:
-                    raise ValueError(f"Insufficient operands for operator '{token}'")
+                    raise ValueError(
+                        f"Insufficient operands for operator '{token}'")
                 try:
                     operand2 = stack.pop()
                     operand1 = stack.pop()
@@ -377,7 +409,8 @@ class ExpressionEvaluator:
 
         if operator in ("&&", "&$$&"):
             if left_type != right_type and not (
-                left_type in ("int", "float") and right_type in ("int", "float")
+                left_type in ("int", "float") and right_type in (
+                    "int", "float")
             ):
                 raise ValueError(
                     f"Type mismatch: Cannot compare {left_type} with {right_type}"
@@ -431,7 +464,8 @@ class ExpressionEvaluator:
     def _evaluate_list_literal(self, match, expected_type):
         """Evaluates list literal expressions like [1, 2, "hello", x]"""
         if expected_type not in ("list", "string", None):
-            raise ValueError(f"Cannot evaluate list literal as type {expected_type}")
+            raise ValueError(
+                f"Cannot evaluate list literal as type {expected_type}")
 
         # Extract the content between brackets
         content = match.group(0)[1:-1].strip()
@@ -486,7 +520,8 @@ class ExpressionEvaluator:
                 # Handle empty list
                 if expression == "[]":
                     return []
-                elements = [x.strip() for x in expression[1:-1].split(",") if x.strip()]
+                elements = [x.strip()
+                            for x in expression[1:-1].split(",") if x.strip()]
                 if self.debug:
                     print(f" List literal: {elements}")
                 return elements
@@ -504,14 +539,16 @@ class ExpressionEvaluator:
             var_value, _ = self.variables[expression]
             return var_value
         else:
-            raise ValueError(f"Invalid expression or undefined variable: {expression}")
+            raise ValueError(
+                f"Invalid expression or undefined variable: {expression}")
 
 
 class Interpreter:
     def __init__(self, debug=False, debug_show=False):
         self.variables = {}
         self.functions = {}  # Store defined functions
-        self.supported_types = ["int", "float", "string", "list", "bool", "set", "void"]
+        self.supported_types = ["int", "float",
+                                "string", "list", "bool", "set", "void"]
         self.expression_evaluator = ExpressionEvaluator(self.variables, debug)
         self.debug = debug
         self.debug_show = debug_show
@@ -622,7 +659,8 @@ List Operations:
 
             try:
                 if "::(" in line:  # Function declaration
-                    skip_lines = self.handle_function_declaration(lines, line_number)
+                    skip_lines = self.handle_function_declaration(
+                        lines, line_number)
                     line_number += skip_lines
                 elif "|>" in line:
                     self.handle_function_call(line)
@@ -704,7 +742,8 @@ List Operations:
                 if current_line.startswith("LOOP_END"):
                     break  # Exit inner loop when LOOP_END is encountered
                 elif current_line.startswith("FOR"):
-                    current_index = self.handle_for(current_line, lines, current_index)
+                    current_index = self.handle_for(
+                        current_line, lines, current_index)
                     continue
                 elif current_line.startswith("WHILE"):
                     current_index = self.handle_while(
@@ -744,7 +783,8 @@ List Operations:
                 if current_line.startswith("LOOP_END"):
                     break  # Exit the loop
                 elif current_line.startswith("FOR"):
-                    current_index = self.handle_for(current_line, lines, current_index)
+                    current_index = self.handle_for(
+                        current_line, lines, current_index)
                     continue
                 elif current_line.startswith("WHILE"):
                     current_index = self.handle_while(
@@ -771,7 +811,8 @@ List Operations:
         if not match:
             raise ValueError(f"Invalid IF statement: {initial_if_line}")
         condition_str = match.group(1)
-        condition_result = self.expression_evaluator.evaluate(condition_str, "bool")
+        condition_result = self.expression_evaluator.evaluate(
+            condition_str, "bool")
 
         block_executed = False
         lines_to_skip = 0
@@ -789,7 +830,8 @@ List Operations:
                         break
                     nesting_level -= 1
                 elif nesting_level == 0 and (
-                    current_line.startswith("ELIF") or current_line.startswith("ELSE")
+                    current_line.startswith(
+                        "ELIF") or current_line.startswith("ELSE")
                 ):
                     break
                 current_index += 1
@@ -950,7 +992,8 @@ List Operations:
             return
         self.variables[var_name] = (value, var_type)
         if self.debug:
-            print(f"Declared variable: {var_name} = {value} (type: {var_type})")
+            print(
+                f"Declared variable: {var_name} = {value} (type: {var_type})")
 
     def handle_reas(self, line):
         """Handles REAS statements."""
@@ -967,12 +1010,14 @@ List Operations:
             return
         var_type = self.variables[var_name][1]  # Get the original type
         if self.debug:
-            print(f"  Parsed REAS: var_name={var_name}, expression={expression}")
+            print(
+                f"  Parsed REAS: var_name={var_name}, expression={expression}")
 
         value = self.expression_evaluator.evaluate(expression, var_type)
         self.variables[var_name] = (value, var_type)
         if self.debug:
-            print(f"Reassigned variable: {var_name} = {value} (type: {var_type})")
+            print(
+                f"Reassigned variable: {var_name} = {value} (type: {var_type})")
 
     def handle_show(self, line):
         """Handles SHOW statements."""
@@ -1042,7 +1087,8 @@ List Operations:
             body.append(line)
             current_index += 1
 
-        raise ValueError(f"Function {func_name} has no return type declaration")
+        raise ValueError(
+            f"Function {func_name} has no return type declaration")
 
     def handle_function_call(self, line: str) -> Any:
         """Handles function calls with the |> operator"""
@@ -1105,8 +1151,10 @@ List Operations:
 
 def main():
     parser = argparse.ArgumentParser(description="A simple code interpreter.")
-    parser.add_argument("filepath", nargs="?", help="The path to the script file.")
-    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode.")
+    parser.add_argument("filepath", nargs="?",
+                        help="The path to the script file.")
+    parser.add_argument("-d", "--debug", action="store_true",
+                        help="Enable debug mode.")
     parser.add_argument(
         "-s", "--debug_show", action="store_true", help="Enable debug show mode."
     )
@@ -1122,4 +1170,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

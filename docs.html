@@ -5,78 +5,152 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Programming Language Documentation</title>
     <style>
+      /* General Styles */
       body {
-        font-family: Arial, sans-serif;
-        background-color: #f4f4f9;
+        font-family: "Arial", sans-serif;
+        background-color: #f0f4f8;
         margin: 0;
         padding: 20px;
         color: #333;
       }
       header {
-        background-color: #333;
-        color: #fff;
-        padding: 10px;
+        background-color: #222;
+        color: white;
+        padding: 20px;
         text-align: center;
+        border-radius: 8px;
+        margin-bottom: 40px;
       }
       h1 {
+        font-size: 2.5em;
+      }
+      p {
+        font-size: 1.1em;
         margin-top: 0;
       }
+
+      /* Section Styles */
       .content {
+        max-width: 1200px;
+        margin: 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 40px;
       }
       .section {
         background-color: #fff;
-        border-radius: 8px;
+        border-radius: 10px;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
         padding: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       }
       h2 {
         color: #444;
+        font-size: 1.8em;
+        margin-bottom: 10px;
       }
+      h3 {
+        color: #555;
+        font-size: 1.4em;
+        margin-bottom: 8px;
+      }
+
+      /* Code block styling */
       pre {
         background-color: #2e2e2e;
         color: #f5f5f5;
-        padding: 10px;
+        padding: 15px;
         border-radius: 8px;
-        overflow-x: auto;
         font-family: "Courier New", Courier, monospace;
         font-size: 1.1em;
-        line-height: 1.6;
+        line-height: 1.5;
+        overflow-x: auto;
       }
+
       code {
         color: #f5f5f5;
       }
+
+      /* Output box styling */
       .output-box {
         background-color: #444;
         color: #fff;
-        padding: 10px;
-        margin-top: 10px;
+        padding: 15px;
+        margin-top: 20px;
         border-radius: 8px;
+        font-size: 1.2em;
       }
       .output-box span {
         color: #0f9d58;
       }
+
+      /* Collapsible sections */
+      .collapsible {
+        background-color: #f7f7f7;
+        color: #555;
+        cursor: pointer;
+        padding: 10px 15px;
+        width: 100%;
+        border: none;
+        text-align: left;
+        outline: none;
+        font-size: 1.2em;
+        border-radius: 8px;
+        margin-top: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .active,
+      .collapsible:hover {
+        background-color: #ddd;
+      }
+      .content-container {
+        padding-left: 20px;
+        margin-top: 10px;
+      }
+
+      /* Table of contents */
+      .toc {
+        margin-top: 30px;
+        background-color: #333;
+        color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+      }
+      .toc ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      .toc li {
+        padding: 8px;
+      }
+      .toc a {
+        color: #0f9d58;
+        text-decoration: none;
+      }
+      .toc a:hover {
+        text-decoration: underline;
+      }
+
+      /* Interactive button for copying code */
+      .copy-btn {
+        background-color: #0f9d58;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 5px;
+        font-size: 1.1em;
+        margin-top: 10px;
+      }
+      .copy-btn:hover {
+        background-color: #128c52;
+      }
+
+      /* Note box */
       .note {
         background-color: #fffbcc;
         border-left: 5px solid #f0c30f;
-        padding: 10px;
-        margin-top: 10px;
-      }
-      .section h3 {
-        margin-top: 0;
-      }
-      .examples {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-      .example {
-        background-color: #eef2f7;
-        border-left: 4px solid #333;
-        padding: 10px;
-        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
       }
     </style>
   </head>
@@ -84,184 +158,191 @@
     <header>
       <h1>Programming Language Documentation</h1>
       <p>
-        Learn about the syntax and features of our custom programming language.
+        Comprehensive guide to the syntax, features, and examples of our custom
+        programming language.
       </p>
     </header>
 
-    <div class="content">
-      <div class="section">
-        <h2>Introduction</h2>
-        <p>
-          This project is a custom programming language that uses Reverse Polish
-          Notation (RPN) for arithmetic operations, as well as unique syntax for
-          defining and calling functions, managing variables, and handling
-          conditional statements.
-        </p>
-      </div>
+    <!-- Table of contents -->
+    <div class="toc">
+      <h3>Table of Contents</h3>
+      <ul>
+        <li>
+          <a href="#function-definitions">Function Definitions and Calls</a>
+        </li>
+        <li>
+          <a href="#rpn-arithmetic">Reverse Polish Notation (RPN) Arithmetic</a>
+        </li>
+        <li><a href="#conditional-statements">Conditional Statements</a></li>
+        <li>
+          <a href="#variable-declarations"
+            >Variable Declarations and Operations</a
+          >
+        </li>
+      </ul>
+    </div>
 
-      <div class="section">
+    <div class="content">
+      <!-- Function Definitions and Calls Section -->
+      <div class="section" id="function-definitions">
         <h2>Function Definitions and Calls</h2>
-        <div class="examples">
-          <div class="example">
-            <h3>Defining a Function</h3>
-            <p>
-              Functions are defined using the <code>::</code> syntax, followed
-              by a list of parameters and a body of code.
-            </p>
-            <pre><code>printHello::()->
+        <p>
+          Functions are a core part of the language. Functions are defined using
+          the <code>::</code> syntax and are called using the
+          <code>&lt;_ |&gt; FuncName</code> syntax.
+        </p>
+
+        <!-- Collapsible example of Function Definition -->
+        <button class="collapsible">Defining a Simple Function</button>
+        <div class="content-container">
+          <pre><code>printHello::()->
     SHOW("Hello from function!")
 <-
 void</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> Hello from function!</p>
-            </div>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+          <div class="output-box">
+            <p><strong>Output:</strong> Hello from function!</p>
           </div>
+        </div>
 
-          <div class="example">
-            <h3>Calling a Function</h3>
-            <p>
-              Functions are called using the
-              <code>&lt;_ |&gt; FuncName</code> syntax. This will invoke the
-              function with no parameters.
-            </p>
-            <pre><code>_ |> printHello</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> Hello from function!</p>
-            </div>
+        <!-- Collapsible example of Function Call -->
+        <button class="collapsible">Calling a Function</button>
+        <div class="content-container">
+          <pre><code>_ |> printHello</code></pre>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+          <div class="output-box">
+            <p><strong>Output:</strong> Hello from function!</p>
           </div>
+        </div>
 
-          <div class="example">
-            <h3>Function with Parameters</h3>
-            <p>Functions can take parameters and be called with arguments.</p>
-            <pre><code>greet::(name:string)->
+        <!-- Collapsible example of Function with Parameters -->
+        <button class="collapsible">Function with Parameters</button>
+        <div class="content-container">
+          <pre><code>greet::(name:string)->
     SHOW("Hello, " + name + "!")
 <-
 void
 
 ("Alice") |> greet</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> Hello, Alice!</p>
-            </div>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+          <div class="output-box">
+            <p><strong>Output:</strong> Hello, Alice!</p>
           </div>
+        </div>
 
-          <div class="note">
-            <p>
-              <strong>Note:</strong> Parameters are passed within parentheses
-              and can be of any valid type such as <code>string</code>,
-              <code>int</code>, etc.
-            </p>
-          </div>
+        <div class="note">
+          <p>
+            <strong>Note:</strong> You can pass arguments to functions within
+            parentheses, separated by commas. Functions can return values as
+            well.
+          </p>
         </div>
       </div>
 
-      <div class="section">
+      <!-- Reverse Polish Notation (RPN) Arithmetic -->
+      <div class="section" id="rpn-arithmetic">
         <h2>Reverse Polish Notation (RPN) Arithmetic</h2>
-        <div class="examples">
-          <div class="example">
-            <h3>Basic Arithmetic (RPN)</h3>
-            <p>
-              Arithmetic operations in this language use Reverse Polish
-              Notation. The operands come first, followed by the operator.
-            </p>
-            <pre><code>LET x: int = 10
+        <p>
+          Arithmetic operations in this language use Reverse Polish Notation.
+          The operands precede the operator.
+        </p>
+
+        <button class="collapsible">Basic Arithmetic in RPN</button>
+        <div class="content-container">
+          <pre><code>LET x: int = 10
 LET y: int = 5
 REAS x = x y +  %% 10 + 5
 SHOW(x)</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> 15</p>
-            </div>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+          <div class="output-box">
+            <p><strong>Output:</strong> 15</p>
           </div>
+        </div>
 
-          <div class="example">
-            <h3>Chaining Operations</h3>
-            <p>Operations can be chained together. For example:</p>
-            <pre><code>LET z: int = 5
+        <button class="collapsible">Chaining Arithmetic Operations</button>
+        <div class="content-container">
+          <pre><code>LET z: int = 5
 REAS z = z 3 + 2 *  %% (5 + 3) * 2
 SHOW(z)</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> 16</p>
-            </div>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+          <div class="output-box">
+            <p><strong>Output:</strong> 16</p>
           </div>
+        </div>
 
-          <div class="note">
-            <p>
-              <strong>Note:</strong> You can chain operations using RPN, as the
-              result of one operation is immediately available for use in the
-              next.
-            </p>
-          </div>
+        <div class="note">
+          <p>
+            <strong>Note:</strong> RPN operations are evaluated from left to
+            right. The result of one operation becomes the input for the next.
+          </p>
         </div>
       </div>
 
-      <div class="section">
+      <!-- Conditional Statements Section -->
+      <div class="section" id="conditional-statements">
         <h2>Conditional Statements</h2>
-        <div class="examples">
-          <div class="example">
-            <h3>Simple IF Statement</h3>
-            <pre><code>LET x: int = 10
+        <p>
+          Use <code>IF-ELSE</code> and <code>IF-ELIF-ELSE</code> to control the
+          flow of your program based on conditions.
+        </p>
+
+        <button class="collapsible">Simple IF Statement</button>
+        <div class="content-container">
+          <pre><code>LET x: int = 10
 IF x > 5 DO
     SHOW("x is greater than 5")
 END</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> x is greater than 5</p>
-            </div>
-          </div>
-
-          <div class="example">
-            <h3>IF-ELSE Statement</h3>
-            <pre><code>IF x < 15 DO
-    SHOW("x is less than 15")
-ELSE
-    SHOW("x is greater than or equal to 15")
-END</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> x is less than 15</p>
-            </div>
-          </div>
-
-          <div class="example">
-            <h3>IF-ELIF-ELSE Statement</h3>
-            <pre><code>LET score: int = 85
-IF score > 90 DO
-    SHOW("Grade: A")
-ELIF score > 80 DO
-    SHOW("Grade: B")
-ELIF score > 70 DO
-    SHOW("Grade: C")
-ELSE
-    SHOW("Grade: D")
-END</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> Grade: B</p>
-            </div>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+          <div class="output-box">
+            <p><strong>Output:</strong> x is greater than 5</p>
           </div>
         </div>
       </div>
 
-      <div class="section">
-        <h2>Variable Declaration and Basic Operations</h2>
-        <div class="examples">
-          <div class="example">
-            <h3>Integer Variables</h3>
-            <pre><code>LET x: int = 10
+      <!-- Variable Declarations and Operations -->
+      <div class="section" id="variable-declarations">
+        <h2>Variable Declarations and Basic Operations</h2>
+        <p>
+          Variables can be declared using the <code>LET</code> keyword, and
+          operations are performed using the <code>REAS</code> keyword.
+        </p>
+
+        <button class="collapsible">Declaring Variables</button>
+        <div class="content-container">
+          <pre><code>LET x: int = 10
 LET y: int = 5
 SHOW(x)
 SHOW(y)</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> 10, 5</p>
-            </div>
-          </div>
-
-          <div class="example">
-            <h3>Basic Arithmetic with REAS</h3>
-            <pre><code>REAS x = x y +  %% x = 10 + 5
-SHOW(x)</code></pre>
-            <div class="output-box">
-              <p><strong>Output:</strong> 15</p>
-            </div>
+          <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+          <div class="output-box">
+            <p><strong>Output:</strong> 10, 5</p>
           </div>
         </div>
       </div>
     </div>
+
+    <script>
+      // Collapsible Section Toggle
+      var coll = document.getElementsByClassName("collapsible");
+      for (var i = 0; i < coll.length; i++) {
+        coll[i].addEventListener("click", function () {
+          this.classList.toggle("active");
+          var content = this.nextElementSibling;
+          if (content.style.display === "block") {
+            content.style.display = "none";
+          } else {
+            content.style.display = "block";
+          }
+        });
+      }
+
+      // Copy Code Button
+      function copyCode(button) {
+        var code = button.previousElementSibling.textContent;
+        navigator.clipboard.writeText(code).then(function () {
+          alert("Code copied to clipboard!");
+        });
+      }
+    </script>
   </body>
 </html>
