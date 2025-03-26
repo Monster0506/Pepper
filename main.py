@@ -63,6 +63,8 @@ class ExpressionEvaluator:
             print(
                 f"Evaluating expression: '{expression}' with expected type: {expected_type}"
             )
+        if expression[0] == '"' and expression[-1] == '"':
+            return expression[1:-1]
         if expression in self.variables:
             value, var_type = self.variables[expression]
             if expected_type is None or var_type == expected_type:
