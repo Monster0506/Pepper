@@ -41,3 +41,9 @@ REAS text = text "Hello" [p] "Hi"
 SHOW(text)
 REAS text = text "Hello" [P] "Hey"
 SHOW(text)
+
+%% Finding Items
+LET x:int = text [f] "e"
+SHOW(x)
+REAS x = text [f] 100
+SHOW(x)

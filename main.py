@@ -93,7 +93,7 @@ class ExpressionEvaluator:
             (r"([a-zA-Z_]\w*)\s+\[l\]", self._evaluate_list_length),
             (r"([a-zA-Z_]\w*)\s+\[i\]\s+(.+)", self._evaluate_list_indexing),
             (r"([a-zA-Z_]\w*)\s+\[f\]\s+(.+)", self._evaluate_list_finding),
-            
+
         ]
 
         for pattern, evaluator in evaluators:
@@ -312,24 +312,30 @@ class ExpressionEvaluator:
         except IndexError:
             print(f"Warning: Index {index} out of range for list {list_name}")
             return None  # Or raise the exception, depending on the desired behavior
+
     def _evaluate_list_finding(self, match, expected_type=None):
         """Evaluates list indexing operations."""
         list_name, value_expression = match.groups()
+
         if not self._is_list_type(list_name):
             raise ValueError(f"'{list_name}' is not a defined list.")
 
         value = self.evaluate(value_expression.strip(), None)
+        if self.debug:
+            print(f"List name: {list_name}")
+            print(f"Value expression: {value_expression}")
+            print(f"Value: {value}")
 
-        try:
-            list_to_search = self.variables[list_name][0]
-            for i, item in enumerate(list_to_search):
-                if str(item) == str(value):
-                    # Return the 1-based index of the first occurrence of the value
-                    return i + 1
-        except ValueError:
+        list_to_search = self.variables[list_name][0]
+        for i, item in enumerate(list_to_search):
+            if str(item) == str(value):
+
+                # Return the 1-based index of the first occurrence of the value
+                return i + 1
+        if self.debug:
             print(f"Warning: Value {value} not found in list {list_name}")
-            return None  # Or raise the exception, depending on the desired behavior
-        
+        return 0
+        # Or raise the exception, depending on the desired behavior
 
     def _evaluate_type_conversion(self, match, expected_type=None):
         """Evaluates type conversion expressions."""

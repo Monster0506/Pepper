@@ -41,3 +41,10 @@ SHOW(chars)
 REAS numbers = numbers 100 [a]
 REAS numbers = numbers 100 [P] 200
 SHOW(numbers)
+
+
+%% Finding Items
+LET x:int = numbers [f] 50
+SHOW(x)
+REAS x = numbers [f] 100
+SHOW(x)
