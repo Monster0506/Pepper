@@ -16,6 +16,7 @@ END_KEYWORD = "END"
 LOOP_END_KEYWORD = "LOOP_END"
 INPUT_KEYWORD = "INPUT"
 GOTO_KEYWORD = "GOTO"
+LABEL_KEYWORD = "LBL"
 
 
 @dataclass
@@ -36,6 +37,8 @@ class ExpressionEvaluator:
             "*": lambda x, y: x * y,
             "/": lambda x, y: x / y if y != 0 else float("inf"),
             "%": lambda x, y: x % y if y != 0 else float("inf"),
+            "**": lambda x, y: x**y,
+            "!/": lambda x, y: x // y if y != 0 else float("inf"),
         }
         self.type_conversions = {
             ("int", "float"): float,
@@ -84,7 +87,10 @@ class ExpressionEvaluator:
             (r'INPUT\("([^"]*)"\)', self._evaluate_input),
             (r"([a-zA-Z_]\w*)\s*:>\s*(\w+)", self._evaluate_type_conversion),
             (r"\[.+\]", self._evaluate_list_literal),
-            (r"(.+)\s*(@\$@|#\$#|[<>]=?|&&|&\$\$&)\s*(.+)", self._evaluate_boolean_expression),
+            (
+                r"(.+)\s*(@\$@|#\$#|[<>]=?|&&|&\$\$&)\s*(.+)",
+                self._evaluate_boolean_expression,
+            ),
             (r"~@\s+(.+)", self._evaluate_boolean_expression),
             (
                 r'([a-zA-Z_]\w*)\s+("[^"]*"|\d+)\s+\[(a|r|n|p|P)\](?:\s+("[^"]*"|\d+))?',
@@ -93,7 +99,6 @@ class ExpressionEvaluator:
             (r"([a-zA-Z_]\w*)\s+\[l\]", self._evaluate_list_length),
             (r"([a-zA-Z_]\w*)\s+\[i\]\s+(.+)", self._evaluate_list_indexing),
             (r"([a-zA-Z_]\w*)\s+\[f\]\s+(.+)", self._evaluate_list_finding),
-
         ]
 
         for pattern, evaluator in evaluators:
@@ -139,7 +144,8 @@ class ExpressionEvaluator:
                 return user_input
         except ValueError:
             raise ValueError(
-                f"Cannot convert input '{user_input}' to type {expected_type}")
+                f"Cannot convert input '{user_input}' to type {expected_type}"
+            )
 
     def _evaluate_literal(self, expression, expected_type):
         """Evaluates literal values with automatic type conversion"""
@@ -202,8 +208,7 @@ class ExpressionEvaluator:
                     value = self.evaluate(part, None)
                     result += str(value)
                 except ValueError:
-                    raise ValueError(
-                        f"Invalid part in string concatenation: {part}")
+                    raise ValueError(f"Invalid part in string concatenation: {part}")
 
         return result
 
@@ -254,8 +259,7 @@ class ExpressionEvaluator:
                     list_value.insert(position - 1, value)
                 else:  # string
                     list_value = (
-                        list_value[: position - 1] +
-                        value + list_value[position - 1:]
+                        list_value[: position - 1] + value + list_value[position - 1 :]
                     )
                 return list_value
             except (ValueError, TypeError):
@@ -274,8 +278,7 @@ class ExpressionEvaluator:
                     index = list_value.index(value)
                     list_value[index] = new_value
                 except ValueError:
-                    raise ValueError(
-                        f"Value {value} not found in list {list_name}")
+                    raise ValueError(f"Value {value} not found in list {list_name}")
             else:  # string
                 if operation == "p":
                     # Replace only first occurrence
@@ -329,7 +332,6 @@ class ExpressionEvaluator:
         list_to_search = self.variables[list_name][0]
         for i, item in enumerate(list_to_search):
             if str(item) == str(value):
-
                 # Return the 1-based index of the first occurrence of the value
                 return i + 1
         if self.debug:
@@ -348,8 +350,7 @@ class ExpressionEvaluator:
                     value, type(value).__name__.lower(), target_type
                 )
             except ValueError:
-                raise ValueError(
-                    f"Variable or expression '{var_name}' not defined.")
+                raise ValueError(f"Variable or expression '{var_name}' not defined.")
 
         source_value, source_type = self.variables[var_name]
         return self._convert_type(source_value, source_type, target_type)
@@ -379,8 +380,7 @@ class ExpressionEvaluator:
                     )
             elif token in ("+", "-", "*", "/", "%"):
                 if len(stack) < 2:
-                    raise ValueError(
-                        f"Insufficient operands for operator '{token}'")
+                    raise ValueError(f"Insufficient operands for operator '{token}'")
                 try:
                     operand2 = stack.pop()
                     operand1 = stack.pop()
@@ -417,7 +417,6 @@ class ExpressionEvaluator:
         if isinstance(match, str):
             expression = match
 
-            
         else:
             if len(match.groups()) == 1:
                 sub_expr = match.group(1).strip()
@@ -425,14 +424,14 @@ class ExpressionEvaluator:
                 return not result
             left_expression, operator, right_expression = match.groups()
             expression = f"{left_expression} {operator} {right_expression}"
-    
+
         if expression.lower() == "true":
             return True
         elif expression.lower() == "false":
             return False
-        
+
         match = re.match(r"(.+)\s*(@\$@|#\$#|[<>]=?|&&|&\$\$&)\s*(.+)", expression)
-        if not match: 
+        if not match:
             raise ValueError(f"Invalid boolean expression: {expression}")
 
         left_expression, operator, right_expression = match.groups()
@@ -444,8 +443,7 @@ class ExpressionEvaluator:
 
         if operator in ("&&", "&$$&"):
             if left_type != right_type and not (
-                left_type in ("int", "float") and right_type in (
-                    "int", "float")
+                left_type in ("int", "float") and right_type in ("int", "float")
             ):
                 raise ValueError(
                     f"Type mismatch: Cannot compare {left_type} with {right_type}"
@@ -503,8 +501,7 @@ class ExpressionEvaluator:
     def _evaluate_list_literal(self, match, expected_type):
         """Evaluates list literal expressions like [1, 2, "hello", x]"""
         if expected_type not in ("list", "string", None):
-            raise ValueError(
-                f"Cannot evaluate list literal as type {expected_type}")
+            raise ValueError(f"Cannot evaluate list literal as type {expected_type}")
 
         # Extract the content between brackets
         content = match.group(0)[1:-1].strip()
@@ -559,8 +556,7 @@ class ExpressionEvaluator:
                 # Handle empty list
                 if expression == "[]":
                     return []
-                elements = [x.strip()
-                            for x in expression[1:-1].split(",") if x.strip()]
+                elements = [x.strip() for x in expression[1:-1].split(",") if x.strip()]
                 if self.debug:
                     print(f" List literal: {elements}")
                 return elements
@@ -578,16 +574,15 @@ class ExpressionEvaluator:
             var_value, _ = self.variables[expression]
             return var_value
         else:
-            raise ValueError(
-                f"Invalid expression or undefined variable: {expression}")
+            raise ValueError(f"Invalid expression or undefined variable: {expression}")
 
 
 class Interpreter:
     def __init__(self, debug=False, debug_show=False):
         self.variables = {}
         self.functions = {}  # Store defined functions
-        self.supported_types = ["int", "float",
-                                "string", "list", "bool", "set", "void"]
+        self.labels = {}
+        self.supported_types = ["int", "float", "string", "list", "bool", "set", "void"]
         self.expression_evaluator = ExpressionEvaluator(self.variables, debug)
         self.debug = debug
         self.debug_show = debug_show
@@ -598,6 +593,16 @@ class Interpreter:
         try:
             with open(filepath, "r") as file:
                 lines = file.readlines()
+                for i, line in enumerate(lines):
+                    if line.startswith(LABEL_KEYWORD):
+                        # match LBL name;
+                        match = re.match(r"LBL\s+([a-zA-Z_]\w*)\s*;", line)
+                        if match:
+                            label_name = match.group(1)
+                            lineNumber = i
+                            self.labels[label_name] = lineNumber + 1
+                        else:
+                            raise ValueError(f"Invalid label definition: {line}")
                 self.execute_lines(lines)
         except FileNotFoundError:
             print(f"Error: File '{filepath}' not found.")
@@ -679,7 +684,7 @@ List Operations:
         loop_stack = []
 
         while line_number < len(lines):
-            line = lines[line_number].split('%%')[0].strip()
+            line = lines[line_number].split("%%")[0].strip()
 
             if skip_lines > 0:
                 skip_lines -= 1
@@ -688,7 +693,7 @@ List Operations:
                 line_number += 1
                 continue
 
-            if not line or line.startswith("%%"):
+            if not line or line.startswith("%%") or line.startswith(LABEL_KEYWORD):
                 if self.debug:
                     print(f"Skipping line {line_number + 1}: {line}")
                 line_number += 1
@@ -698,32 +703,43 @@ List Operations:
                 print(f"Processing line {line_number + 1}: {line}")
 
             try:
-
                 if line.startswith(GOTO_KEYWORD):
                     # Handle GOTO statement with optional condition
-                    match = re.match(r"GOTO\s+(\d+)\s*;(.+)?", line)
+                    match = re.match(r"GOTO\s+(\w+)\s*;(.+)?", line)
+                    target_line = 0
                     if not match:
                         raise ValueError(f"Invalid GOTO statement: {line}")
-                    target_line = int(match.group(1))
-                    condition = match.group(2)
+                    target = match.group(1)
+                    if target.isdigit():
+                        target_line = int(match.group(1))
 
+                    else:
+                        label_line = self.labels.get(target)
+                        if not label_line:
+                            print(f"Label {target} not found")
+                        else:
+                            if self.debug:
+                                print(f"Jumping to label {target} at line {label_line}")
+                            target_line = label_line
+
+                    condition = match.group(2)
                     if target_line < 1 or target_line > len(lines):
-                        raise ValueError(
-                            f"Invalid line number in GOTO: {target_line}")
+                        raise ValueError(f"Invalid line number in GOTO: {target_line}")
 
                     # If there's a condition, evaluate it
                     if condition and condition.strip():
                         should_jump = self.expression_evaluator.evaluate(
-                            condition.strip(), "bool")
+                            condition.strip(), "bool"
+                        )
                         if not should_jump:
                             line_number += 1
                             continue
 
                     line_number = target_line - 1  # Convert to 0-based index
                     continue
+
                 elif "::(" in line:  # Function declaration
-                    skip_lines = self.handle_function_declaration(
-                        lines, line_number)
+                    skip_lines = self.handle_function_declaration(lines, line_number)
                     line_number += skip_lines
                 elif "|>" in line:
                     self.handle_function_call(line)
@@ -772,13 +788,12 @@ List Operations:
                     raise ValueError(f"Invalid command: {line}")
 
             except ValueError as e:
-
                 print(f"Error on line {line_number + 1}: {e}")
                 return  # Or perhaps continue, depending on desired error handling
 
             if self.debug:
                 print(
-                    f"Current variables: {self.variables}\nCurrent functions: {self.functions}"
+                    f"Current variables: {self.variables}\nCurrent functions: {self.functions}\nCurrent labels: {self.labels}\nCurrent return value: {self.return_value}\nCurrent line number: {line_number + 1}"
                 )
                 print("-" * 20)
             line_number += 1
@@ -806,8 +821,7 @@ List Operations:
                 if current_line.startswith("LOOP_END"):
                     break  # Exit inner loop when LOOP_END is encountered
                 elif current_line.startswith("FOR"):
-                    current_index = self.handle_for(
-                        current_line, lines, current_index)
+                    current_index = self.handle_for(current_line, lines, current_index)
                     continue
                 elif current_line.startswith("WHILE"):
                     current_index = self.handle_while(
@@ -847,8 +861,7 @@ List Operations:
                 if current_line.startswith("LOOP_END"):
                     break  # Exit the loop
                 elif current_line.startswith("FOR"):
-                    current_index = self.handle_for(
-                        current_line, lines, current_index)
+                    current_index = self.handle_for(current_line, lines, current_index)
                     continue
                 elif current_line.startswith("WHILE"):
                     current_index = self.handle_while(
@@ -875,8 +888,7 @@ List Operations:
         if not match:
             raise ValueError(f"Invalid IF statement: {initial_if_line}")
         condition_str = match.group(1)
-        condition_result = self.expression_evaluator.evaluate(
-            condition_str, "bool")
+        condition_result = self.expression_evaluator.evaluate(condition_str, "bool")
 
         block_executed = False
         lines_to_skip = 0
@@ -894,8 +906,7 @@ List Operations:
                         break
                     nesting_level -= 1
                 elif nesting_level == 0 and (
-                    current_line.startswith(
-                        "ELIF") or current_line.startswith("ELSE")
+                    current_line.startswith("ELIF") or current_line.startswith("ELSE")
                 ):
                     break
                 current_index += 1
@@ -1022,7 +1033,6 @@ List Operations:
         if line.startswith(LET_KEYWORD):
             self.handle_let(line)
         elif "|>" in line:  # Function call
-            print("found |>")
             return self.handle_function_call(line)
         elif line.startswith(SHOW_KEYWORD):
             self.handle_show(line)
@@ -1056,8 +1066,7 @@ List Operations:
             return
         self.variables[var_name] = (value, var_type)
         if self.debug:
-            print(
-                f"Declared variable: {var_name} = {value} (type: {var_type})")
+            print(f"Declared variable: {var_name} = {value} (type: {var_type})")
 
     def handle_reas(self, line):
         """Handles REAS statements."""
@@ -1074,14 +1083,12 @@ List Operations:
             return
         var_type = self.variables[var_name][1]  # Get the original type
         if self.debug:
-            print(
-                f"  Parsed REAS: var_name={var_name}, expression={expression}")
+            print(f"  Parsed REAS: var_name={var_name}, expression={expression}")
 
         value = self.expression_evaluator.evaluate(expression, var_type)
         self.variables[var_name] = (value, var_type)
         if self.debug:
-            print(
-                f"Reassigned variable: {var_name} = {value} (type: {var_type})")
+            print(f"Reassigned variable: {var_name} = {value} (type: {var_type})")
 
     def handle_show(self, line):
         """Handles SHOW statements."""
@@ -1149,8 +1156,7 @@ List Operations:
             body.append(line)
             current_index += 1
 
-        raise ValueError(
-            f"Function {func_name} has no return type declaration")
+        raise ValueError(f"Function {func_name} has no return type declaration")
 
     def handle_function_call(self, line: str) -> Any:
         """Handles function calls with the |> operator"""
@@ -1185,11 +1191,8 @@ List Operations:
 
         # Evaluate and bind arguments to parameters
         for (param_name, param_type), arg in zip(func.params, args):
-            print(arg, param_type)
             value = self.expression_evaluator.evaluate(arg, param_type)
-            print(value)
             self.variables[param_name] = (value, param_type)
-        print(self.variables)
 
         # Execute function body
         self.return_value = None
@@ -1201,7 +1204,6 @@ List Operations:
                 )
                 break
             else:
-                print()
                 self.execute_line(line)
 
         # Restore original scope
@@ -1212,10 +1214,8 @@ List Operations:
 
 def main():
     parser = argparse.ArgumentParser(description="A simple code interpreter.")
-    parser.add_argument("filepath", nargs="?",
-                        help="The path to the script file.")
-    parser.add_argument("-d", "--debug", action="store_true",
-                        help="Enable debug mode.")
+    parser.add_argument("filepath", nargs="?", help="The path to the script file.")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode.")
     parser.add_argument(
         "-s", "--debug_show", action="store_true", help="Enable debug show mode."
     )
