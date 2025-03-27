@@ -1,5 +1,8 @@
 %% Test: Random Operations
 
+%% SEED
+? 10
+
 %% Test random float between 0 and 1
 LET random_float: float = ?
 SHOW("Random float between 0 and 1: " + random_float)
@@ -29,7 +32,7 @@ SHOW("Five random numbers between 0 and 1:")
 FOR i FROM 1 TO 5 DO
     REAS rand = ?
     SHOW(rand)
-LOOP_END
+LOOP_END;
 
 %% Test random integers in ranges
 LET dice: int = ? 6 1 * +
@@ -47,4 +50,4 @@ SHOW("Rolling five dice:")
 FOR i FROM 1 TO 5 DO
     REAS dice = ? 6 * 1 +
     SHOW("Roll " + i + ": " + dice)
-LOOP_END
+LOOP_END;

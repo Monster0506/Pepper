@@ -10,7 +10,7 @@ _ |> printHello
 
 
 %% Function with parameters
-greet::(name:string)->
+greet::(name: string)->
     SHOW("Hello, " + name + "!")
 <-void
 
@@ -29,16 +29,14 @@ add::(x:int, y:int)->
 LET sum: int = (5, 3) |> add
 SHOW("Sum is: " + sum)
 
+%% Test with mixed types
+LET message: string = (3.14, "pi") |> calculate
+SHOW(message)
+
 %% Function with different types
 calculate::(num:float, text:string)->
     LET result: string = num :> string + " " + text
     RETURN result
 <-string
 
-%% Test with mixed types
-LET message: string = (3.14, "pi") |> calculate
-SHOW(message)
-
-%% Test nested function calls
-%% LET final: string = ((2, 3) |> add :> float, "result") |> calculate
-%% SHOW(final)
+SHOW((5, "result") |> calculate)

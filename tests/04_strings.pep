@@ -1,5 +1,8 @@
 %% Test: String Operations
 
+%% SEED
+? 10
+
 %% String concatenation
 LET first: string = "Hello"
 LET second: string = "World"
@@ -50,8 +53,8 @@ SHOW(x)
 
 
 %% Finding Items
-REAS x = text [?]
-SHOW(x)
-REAS x = text [?]
-SHOW(x)
+LET s:string = text [?]
+SHOW(s)
+REAS s = text [?]
+SHOW(s)
 

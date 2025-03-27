@@ -1,0 +1,23 @@
+Testing equality (&&):
+true
+true
+Testing inequality (&$$&):
+true
+true
+Testing comparison operators:
+true
+true
+true
+true
+Testing logical operators:
+a and b: a @$@ b:
+false
+a or b: a #$# b:
+true
+not a: ~@ a:
+false
+not b: ~@ b:
+true
+Testing complex conditions:
+true
+true

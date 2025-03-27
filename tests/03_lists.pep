@@ -1,5 +1,8 @@
 %% Test: List Operations
 
+%% SEED
+? 10
+
 %% List creation and basic operations
 LET numbers: list = [1, 2, 3, 4, 5]
 SHOW(numbers)
