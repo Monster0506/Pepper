@@ -24,10 +24,12 @@ TEST_FILE_EXTENSION = '.pep'
 EXPECTED_OUTPUT_EXTENSION = '.expected'
 TIMEOUT_SECONDS = 10
 
+
 def print_header(text: str, level: int = 1) -> None:
     color = Fore.CYAN if level == 1 else Fore.MAGENTA
     line = "=" * 25
     print(f"\n{color}{line} {text} {line}{Style.RESET_ALL}")
+
 
 def print_diff(expected: str, actual: str) -> None:
     print(f"{Fore.YELLOW}--- Diff ---{Style.RESET_ALL}")
@@ -49,8 +51,10 @@ def print_diff(expected: str, actual: str) -> None:
     print(f"{Fore.YELLOW}------------{Style.RESET_ALL}")
 
 
-def run_test_process(command: List[str], test_file_path: Path) -> Dict[str, Any]:
+def run_test_process(command: List[str], test_file_path: Path, debug= False) -> Dict[str, Any]:
     full_command = command + [str(test_file_path)]
+    if debug:
+        full_command.append('--debug')
     result_data = {
         'stdout': '',
         'stderr': '',
@@ -96,7 +100,7 @@ def check_test_result(
 
     if expected_output is None:
         if run_result['stderr']:
-             return False, f"Expected no stderr, but got stderr (no .expected file found)"
+            return False, f"Expected no stderr, but got stderr (no .expected file found)"
         return True, "Passed (Exit code 0, no stderr, no .expected file)"
 
     actual_output = run_result['stdout'].strip()
@@ -124,6 +128,8 @@ def main() -> None:
         default=DEFAULT_TEST_DIR,
         help=f'Directory containing test files (default: {DEFAULT_TEST_DIR}).'
     )
+    parser.add_argument("-d", "--debug", action="store_true",
+                        help="Enable detailed execution tracing.")
     parser.add_argument(
         '--command',
         nargs='+',
@@ -137,7 +143,7 @@ def main() -> None:
         sys.exit(1)
 
     if not shutil.which(args.command[0]):
-         print(
+        print(
             f"{Fore.YELLOW}Warning: Command '{args.command[0]}' not found in PATH. "
             f"The test runner might fail.{Style.RESET_ALL}",
             file=sys.stderr
@@ -174,33 +180,41 @@ def main() -> None:
         test_name = test_file_path.name
         print_header(f"Running: {test_name}", level=2)
 
-        expected_output_path = test_file_path.with_suffix(EXPECTED_OUTPUT_EXTENSION)
+        expected_output_path = test_file_path.with_suffix(
+            EXPECTED_OUTPUT_EXTENSION)
         expected_output: Optional[str] = None
 
         try:
             test_content = test_file_path.read_text()
             if args.verbose:
-                print(f"{Fore.YELLOW}--- Test Contents ({test_name}) ---{Style.RESET_ALL}")
+                print(
+                    f"{Fore.YELLOW}--- Test Contents ({test_name}) ---{Style.RESET_ALL}")
                 print(test_content.strip())
-                print(f"{Fore.YELLOW}------------------------------------{Style.RESET_ALL}")
+                print(
+                    f"{Fore.YELLOW}------------------------------------{Style.RESET_ALL}")
 
             if expected_output_path.is_file():
                 expected_output = expected_output_path.read_text()
                 if args.verbose:
-                    print(f"{Fore.YELLOW}--- Expected Output ({expected_output_path.name}) ---{Style.RESET_ALL}")
+                    print(
+                        f"{Fore.YELLOW}--- Expected Output ({expected_output_path.name}) ---{Style.RESET_ALL}")
                     print(expected_output.strip())
-                    print(f"{Fore.YELLOW}-----------------------------------------{Style.RESET_ALL}")
+                    print(
+                        f"{Fore.YELLOW}-----------------------------------------{Style.RESET_ALL}")
             elif args.verbose:
-                print(f"{Fore.YELLOW}--- Expected Output: (None - {expected_output_path.name} not found) ---{Style.RESET_ALL}")
+                print(
+                    f"{Fore.YELLOW}--- Expected Output: (None - {expected_output_path.name} not found) ---{Style.RESET_ALL}")
 
         except Exception as e:
-            print(f"{Fore.RED}Error reading test or expected file: {e}{Style.RESET_ALL}")
+            print(
+                f"{Fore.RED}Error reading test or expected file: {e}{Style.RESET_ALL}")
             failed_tests_info.append((test_name, f"File reading error: {e}"))
             continue
 
-        run_result = run_test_process(args.command, test_file_path)
+        run_result = run_test_process(args.command, test_file_path, args.debug)
 
-        success, reason = check_test_result(test_file_path, run_result, expected_output)
+        success, reason = check_test_result(
+            test_file_path, run_result, expected_output)
 
         print(f"\n{Fore.YELLOW}--- Result ---{Style.RESET_ALL}")
 
@@ -212,15 +226,15 @@ def main() -> None:
             failed_tests_info.append((test_name, reason))
 
             if reason == "Output mismatch" and expected_output is not None:
-                 print_diff(expected_output, run_result['stdout'])
+                print_diff(expected_output, run_result['stdout'])
             else:
-                 if run_result['stdout']:
-                      print(f"\n{Fore.YELLOW}--- Stdout ---{Style.RESET_ALL}")
-                      print(run_result['stdout'].strip())
-                 if run_result['stderr']:
-                     print(f"\n{Fore.YELLOW}--- Stderr ---{Style.RESET_ALL}")
-                     print(f"{Fore.RED}{run_result['stderr'].strip()}{Style.RESET_ALL}")
-
+                if run_result['stdout']:
+                    print(f"\n{Fore.YELLOW}--- Stdout ---{Style.RESET_ALL}")
+                    print(run_result['stdout'].strip())
+                if run_result['stderr']:
+                    print(f"\n{Fore.YELLOW}--- Stderr ---{Style.RESET_ALL}")
+                    print(
+                        f"{Fore.RED}{run_result['stderr'].strip()}{Style.RESET_ALL}")
 
     print_header("TEST SUMMARY", level=1)
     print(f"Total tests run: {total_tests}")
