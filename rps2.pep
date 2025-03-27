@@ -30,7 +30,7 @@ ELIF mod && 1 DO
     SHOW("Player 2 Wins!")
 ELSE DO
     SHOW("Player 1 Wins!")
-END;
+END
 
 REAS input = INPT("Play again? [yes/no]")
 GOTO start; input [i] 1 && "y"

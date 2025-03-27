@@ -1372,9 +1372,9 @@ Notes:
 
                 elif line.startswith(END_KEYWORD):
                     # Optional semicolon? Let's require it.
-                    match = re.match(r"END\s*;", line)
+                    match = re.match(r"END\s*", line)
                     if not match:
-                        raise ValueError("Invalid END syntax, expected 'END;'")
+                        raise ValueError("Invalid END syntax, expected 'END'")
                     if not conditional_stack:
                         raise ValueError("END without matching IF")
                     conditional_stack.pop()  # Exit the current IF/ELIF/ELSE structure
@@ -1444,10 +1444,10 @@ Notes:
 
                 elif line.startswith(LOOP_END_KEYWORD):
                     # Optional semicolon? Require it.
-                    match = re.match(r"LOOP_END\s*;", line)
+                    match = re.match(r"LOOP_END\s*", line)
                     if not match:
                         raise ValueError(
-                            "Invalid LOOP_END syntax, expected 'LOOP_END;'")
+                            "Invalid LOOP_END syntax, expected 'LOOP_END'")
                     if not loop_stack:
                         raise ValueError(
                             f"{LOOP_END_KEYWORD} without matching FOR or WHILE")
@@ -1535,14 +1535,14 @@ Notes:
             if line.startswith((FOR_KEYWORD, WHILE_KEYWORD)):
                 nesting_level += 1
             elif line.startswith(LOOP_END_KEYWORD):
-                match = re.match(r"LOOP_END\s*;", line)
+                match = re.match(r"LOOP_END\s*", line)
                 if match:
                     if nesting_level == 0:
                         return ptr  # Found the matching end
                     nesting_level -= 1
             ptr += 1
         raise ValueError(
-            f"Missing LOOP_END; for loop starting on line {start_line_ptr + 1}")
+            f"Missing LOOP_END for loop starting on line {start_line_ptr + 1}")
 
     def _find_matching_conditional_end(self, lines, start_line_ptr, targets):
         """Finds the next ELIF, ELSE, or END at the same nesting level."""
@@ -1553,7 +1553,7 @@ Notes:
             if line.startswith(IF_KEYWORD):
                 nesting_level += 1
             elif line.startswith(END_KEYWORD):
-                match = re.match(r"END\s*;", line)
+                match = re.match(r"END\s*", line)
                 if match:
                     if nesting_level == 0:
                         # Found the END for the starting IF
@@ -1572,7 +1572,7 @@ Notes:
         # If searching for END and not found
         if 'end' in targets:
             raise ValueError(
-                f"Missing END; for IF block starting on line {start_line_ptr + 1}")
+                f"Missing END for IF block starting on line {start_line_ptr + 1}")
         # If searching for ELIF/ELSE and not found, return line count (effectively end of block)
         return len(lines)
 

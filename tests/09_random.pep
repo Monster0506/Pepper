@@ -32,7 +32,7 @@ SHOW("Five random numbers between 0 and 1:")
 FOR i FROM 1 TO 5 DO
     REAS rand = ?
     SHOW(rand)
-LOOP_END;
+LOOP_END
 
 %% Test random integers in ranges
 LET dice: int = ? 6 1 * +
@@ -50,4 +50,4 @@ SHOW("Rolling five dice:")
 FOR i FROM 1 TO 5 DO
     REAS dice = ? 6 * 1 +
     SHOW("Roll " + i + ": " + dice)
-LOOP_END;
+LOOP_END
