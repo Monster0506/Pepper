@@ -4,6 +4,7 @@ import ast
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 import random
+import math
 
 # Constants for Keywords
 FOR_KEYWORD = "FOR"
@@ -19,8 +20,163 @@ LOOP_END_KEYWORD = "LOOP_END"
 INPUT_KEYWORD = "INPT"
 GOTO_KEYWORD = "GOTO"
 LABEL_KEYWORD = "LBL"
-RETURN_KEYWORD = "RETURN"  # Added for clarity
+RETURN_KEYWORD = "RETURN"
 
+
+class StandardLibrary:
+    """Encapsulates standard library functions for the Pepper language."""
+
+    def __init__(self, evaluator):
+        self._evaluator = evaluator
+        self._debug = evaluator.debug
+        # Ensure _get_python_type_name is accessible if needed (it's global in the original code)
+        self.functions = {
+            # String Functions
+            "upper": self.string_upper,
+            "lower": self.string_lower,
+            "str_len": self.string_len,
+            "trim": self.string_trim,
+            "replace": self.string_replace,
+            "split": self.string_split,
+
+            # Math Functions
+            "sqrt": self.math_sqrt,
+            "pow": self.math_pow,
+            "abs": self.math_abs,
+            "rnd": self.math_rnd,
+            "floor": self.math_floor,
+            "ceil": self.math_ceil,
+
+            # Type Checking Functions
+            "is_int": self.type_is_int,
+            "is_float": self.type_is_float,
+            "is_string": self.type_is_string,
+            "is_list": self.type_is_list,
+            "is_bool": self.type_is_bool,
+            "get_type": self.type_get_type,
+        }
+
+    def _convert(self, value, source_type, target_type):
+        # Make sure the global _raise is available or handle errors differently
+        try:
+             return self._evaluator._convert_type(value, source_type, target_type)
+        except Exception as e:
+             # Propagate conversion errors clearly
+             raise ValueError(f"Stdlib conversion failed: {e}")
+
+
+    # --- String Functions ---
+    # CORRECTED SIGNATURE: (self, base_value, base_type, arg_value, arg_type)
+
+    def string_upper(self, base_value, base_type, arg_value, arg_type):
+        if base_type != "string": raise ValueError("'upper' requires a string base value")
+        return base_value.upper()
+
+    def string_lower(self, base_value, base_type, arg_value, arg_type):
+        if base_type != "string": raise ValueError("'lower' requires a string base value")
+        return base_value.lower()
+
+    def string_len(self, base_value, base_type, arg_value, arg_type):
+        if base_type != "string": raise ValueError("'str_len' requires a string base value")
+        return len(base_value)
+
+    def string_trim(self, base_value, base_type, arg_value, arg_type):
+        if base_type != "string": raise ValueError("'trim' requires a string base value")
+        return base_value.strip()
+
+    def string_replace(self, base_value, base_type, arg_value, arg_type):
+        if base_type != "string": raise ValueError("'replace' requires a string base value")
+        # Check arg_value before accessing length
+        if arg_type != "list" or arg_value is None or len(arg_value) != 2:
+            raise ValueError("'replace' requires a list argument [old_str, new_str]")
+
+        # Make sure _get_python_type_name is accessible
+        old_str = self._convert(arg_value[0], _get_python_type_name(arg_value[0]), "string")
+        new_str = self._convert(arg_value[1], _get_python_type_name(arg_value[1]), "string")
+        return base_value.replace(old_str, new_str)
+
+    def string_split(self, base_value, base_type, arg_value, arg_type):
+         if base_type != "string": raise ValueError("'split' requires a string base value")
+         # Allow splitting by empty string? No, require delimiter arg.
+         if arg_type != "string" or arg_value is None:
+             raise ValueError("'split' requires a string delimiter argument")
+         delimiter = arg_value
+         return base_value.split(delimiter)
+
+
+    # --- Math Functions ---
+    # CORRECTED SIGNATURE: (self, base_value, base_type, arg_value, arg_type)
+
+    def math_sqrt(self, base_value, base_type, arg_value, arg_type):
+        try:
+            num_base = self._convert(base_value, base_type, "float")
+        except ValueError:
+            raise ValueError("'sqrt' requires a numeric base value")
+        if num_base < 0: raise ValueError("Cannot calculate square root of a negative number")
+        return math.sqrt(num_base)
+
+    def math_pow(self, base_value, base_type, arg_value, arg_type):
+        try:
+            num_base = self._convert(base_value, base_type, "float")
+        except ValueError:
+            raise ValueError("'pow' requires a numeric base value")
+        try:
+            num_exp = self._convert(arg_value, arg_type, "float")
+        except ValueError:
+             raise ValueError("'pow' requires a numeric exponent argument")
+        return math.pow(num_base, num_exp)
+
+    def math_abs(self, base_value, base_type, arg_value, arg_type):
+        try:
+            # Determine target type based on original base_type for better fidelity
+            target_type = "int" if base_type == "int" else "float"
+            num_base = self._convert(base_value, base_type, target_type)
+            return abs(num_base) # abs() preserves int/float
+        except ValueError:
+            raise ValueError("'abs' requires a numeric base value")
+
+
+    def math_rnd(self, base_value, base_type, arg_value, arg_type):
+         return random.random()
+
+    def math_floor(self, base_value, base_type, arg_value, arg_type):
+         try:
+             num_base = self._convert(base_value, base_type, "float")
+             return math.floor(num_base) # Returns float in Python 3, but usually used as int
+         except ValueError:
+             raise ValueError("'floor' requires a numeric base value")
+
+    def math_ceil(self, base_value, base_type, arg_value, arg_type):
+         try:
+             num_base = self._convert(base_value, base_type, "float")
+             return math.ceil(num_base) # Returns float in Python 3, but usually used as int
+         except ValueError:
+             raise ValueError("'ceil' requires a numeric base value")
+
+
+    # --- Type Checking Functions ---
+    # CORRECTED SIGNATURE: (self, base_value, base_type, arg_value, arg_type)
+
+    def _type_check(self, base_type, target_type): # Simplified helper
+         return base_type == target_type
+
+    def type_is_int(self, base_value, base_type, arg_value, arg_type):
+        return self._type_check(base_type, "int")
+
+    def type_is_float(self, base_value, base_type, arg_value, arg_type):
+        return self._type_check(base_type, "float")
+
+    def type_is_string(self, base_value, base_type, arg_value, arg_type):
+        return self._type_check(base_type, "string")
+
+    def type_is_list(self, base_value, base_type, arg_value, arg_type):
+        return self._type_check(base_type, "list")
+
+    def type_is_bool(self, base_value, base_type, arg_value, arg_type):
+        return self._type_check(base_type, "bool")
+
+    def type_get_type(self, base_value, base_type, arg_value, arg_type):
+         return base_type
 
 @dataclass
 class Function:
@@ -62,6 +218,7 @@ class ExpressionEvaluator:
             ("bool", "int"): lambda x: 1 if x else 0,  # Bool to int
             ("bool", "float"): lambda x: 1.0 if x else 0.0,  # Bool to float
         }
+        self.stdlib_handler = StandardLibrary(self)
 
     def evaluate(self, expression: str, expected_type: Optional[str]):
         """Main evaluation method that routes to appropriate sub-evaluators"""
@@ -97,6 +254,15 @@ class ExpressionEvaluator:
                 print(f"  Evaluating as INPUT")
             return self._evaluate_input(input_match, expected_type)
 
+        # --- NEW: 4. Standard Library Call ---
+        stdlib_match = re.fullmatch(
+            r"([a-zA-Z_]\w*)\s+FROM\s+(.+?)\s*\((.*)\)", expression, re.DOTALL)
+        if stdlib_match:
+            if self.debug:
+                print(f"  Evaluating as Standard Library call")
+            # Pass the match and expected_type to the handler
+            return self._evaluate_stdlib_call(stdlib_match, expected_type)
+        # --- End NEW ---
         # 4. Type Conversion Expression
         type_conv_match = re.fullmatch(r"(.+?)\s*:>\s*(\w+)", expression)
         if type_conv_match:
@@ -175,8 +341,8 @@ class ExpressionEvaluator:
         if func_call_match:
             if self.debug:
                 print(f"  Evaluating as function call within expression")
-         # Call the interpreter's handler, passing the expression line,
-         # the current variables, and this evaluator instance for arg evaluation
+        # Call the interpreter's handler, passing the expression line,
+        # the current variables, and this evaluator instance for arg evaluation
             try:
                 # Pass the raw expression string as the 'line' argument
                 return_value = self.interpreter.handle_function_call(
@@ -250,6 +416,72 @@ class ExpressionEvaluator:
 
         # If nothing else matches, raise Error
         raise ValueError(f"Unable to evaluate expression: '{expression}'")
+  # --- NEW: Standard Library Call Handler ---
+
+    def _evaluate_stdlib_call(self, match, expected_type):
+        """Evaluates standard library function calls like 'upper FROM "hello" ()'."""
+        func_name, base_expr, arg_expr_str = match.groups()
+        func_name = func_name.lower()  # Case-insensitive function name
+
+        if self.debug:
+            print(
+                f"  Stdlib Call: func='{func_name}', base_expr='{base_expr}', arg_expr='{arg_expr_str}'")
+
+        # Check if function exists in the handler
+        if func_name not in self.stdlib_handler.functions:
+            raise ValueError(
+                f"Unknown standard library function: '{func_name}'")
+
+        # Evaluate the base expression
+        try:
+            # Evaluate base expression first
+            base_value = self.evaluate(base_expr, None)
+            base_type = _get_python_type_name(base_value)
+        except Exception as e:
+            raise ValueError(
+                f"Error evaluating base expression '{base_expr}' for stdlib function '{func_name}': {e}") from e
+
+        if self.debug:
+            print(
+                f"    Base '{base_expr}' evaluated to: {repr(base_value)} (type: {base_type})")
+
+        # Evaluate the argument expression (if any)
+        arg_value = None  # Default if no args provided or needed
+        actual_arg_type = "void"  # Default type
+        if arg_expr_str.strip():  # Only evaluate if arg_expr_str is not empty
+            try:
+                # Evaluate argument expression, expecting 'any' type initially
+                arg_value = self.evaluate(arg_expr_str, None)
+                actual_arg_type = _get_python_type_name(arg_value)
+            except Exception as e:
+                raise ValueError(
+                    f"Error evaluating argument expression '{arg_expr_str}' for stdlib function '{func_name}': {e}") from e
+
+        if self.debug:
+            print(
+                f"    Arg '{arg_expr_str}' evaluated to: {repr(arg_value)} (type: {actual_arg_type})")
+
+        # Get the standard library method implementation
+        stdlib_method = self.stdlib_handler.functions[func_name]
+
+        # Call the specific stdlib method, now passing the base value/type as well
+        try:
+            # Signature: method(base_value, base_type, arg_value, arg_type)
+            result = stdlib_method(base_value, base_type,
+                                   arg_value, actual_arg_type)
+        except Exception as e:
+            # Catch errors during the execution of the stdlib function itself
+            raise ValueError(
+                f"Error during execution of stdlib function '{func_name}': {e}") from e
+
+        result_type = _get_python_type_name(result)
+        if self.debug:
+            print(
+                f"    Stdlib function '{func_name}' returned: {repr(result)} (type: {result_type})")
+
+        # Convert the result to the type expected by the outer context calling evaluate()
+        return self._convert_type(result, result_type, expected_type)
+    # --- End REVISED ---
 
     def _evaluate_input(self, match, expected_type):
         """Evaluates input expressions."""
@@ -989,8 +1221,8 @@ def _get_python_type_name(value):
     if isinstance(value, list):
         return "list"
     if value is None:
-        return "void" 
-    return "any" 
+        return "void"
+    return "any"
 
 
 def _raise(exception):
@@ -1245,7 +1477,7 @@ Notes:
                     print(f"  Local Vars: {current_vars}")
 
             try:
-                if line.startswith('?'): # Quick check before regex
+                if line.startswith('?'):  # Quick check before regex
                     seed_match = re.match(r"\?\s+(.+)", line)
                     if seed_match:
                         seed_value_str = seed_match.group(1).strip()
@@ -1253,19 +1485,24 @@ Notes:
                             # Attempt conversion to int first, as it's common for seeds
                             seed_value_for_func = int(seed_value_str)
                             random.seed(seed_value_for_func)
-                            if self.debug: print(f"  Seeded random generator with int: {seed_value_for_func}")
+                            if self.debug:
+                                print(
+                                    f"  Seeded random generator with int: {seed_value_for_func}")
                         except ValueError:
                             # If int conversion fails, use the string itself.
                             # random.seed() accepts various hashable types.
                             seed_value_for_func = seed_value_str
                             random.seed(seed_value_for_func)
-                            if self.debug: print(f"  Seeded random generator with string: '{seed_value_for_func}'")
+                            if self.debug:
+                                print(
+                                    f"  Seeded random generator with string: '{seed_value_for_func}'")
 
-                        line_ptr += 1 # Move to next line
-                        continue # Finished processing the seed command for this line
+                        line_ptr += 1  # Move to next line
+                        continue  # Finished processing the seed command for this line
                     else:
                         # Handle cases like just "?" or "?seed" (no space/value)
-                        raise ValueError("Invalid seed syntax. Expected '? <seed_value>'")
+                        raise ValueError(
+                            "Invalid seed syntax. Expected '? <seed_value>'")
                 # --- Control Flow ---
                 elif line.startswith(GOTO_KEYWORD):
                     # Condition is optional
@@ -1593,21 +1830,26 @@ Notes:
 
         try:
             # --- Seed Command (NEW for REPL) ---
-            if line.startswith('?'): # Quick check before regex
+            if line.startswith('?'):  # Quick check before regex
                 seed_match = re.match(r"\?\s+(.+)", line)
                 if seed_match:
                     seed_value_str = seed_match.group(1).strip()
                     try:
                         seed_value_for_func = int(seed_value_str)
                         random.seed(seed_value_for_func)
-                        if self.debug: print(f"  Seeded random generator with int: {seed_value_for_func}")
+                        if self.debug:
+                            print(
+                                f"  Seeded random generator with int: {seed_value_for_func}")
                     except ValueError:
                         seed_value_for_func = seed_value_str
                         random.seed(seed_value_for_func)
-                        if self.debug: print(f"  Seeded random generator with string: '{seed_value_for_func}'")
-                    return None # Seed command handled, return nothing
+                        if self.debug:
+                            print(
+                                f"  Seeded random generator with string: '{seed_value_for_func}'")
+                    return None  # Seed command handled, return nothing
                 else:
-                    raise ValueError("Invalid seed syntax. Expected '? <seed_value>'")
+                    raise ValueError(
+                        "Invalid seed syntax. Expected '? <seed_value>'")
             elif line.startswith(LET_KEYWORD):
                 return self.handle_let(line, current_vars, evaluator)
             elif line.startswith(REAS_KEYWORD):
