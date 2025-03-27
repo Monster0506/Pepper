@@ -9,34 +9,27 @@ from typing import List, Dict, Any, Tuple, Optional
 
 try:
     from colorama import init, Fore, Style
-    init()  # Initialize colorama for Windows
+    init()
 except ImportError:
-    # Provide dummy colorama classes if not installed
     class DummyStyle:
         def __getattr__(self, name: str) -> str:
             return ""
     Fore = DummyStyle()
     Style = DummyStyle()
     print("Warning: colorama not found. Output will not be colored.", file=sys.stderr)
-    # No init() needed if colorama is not imported
 
-# --- Constants ---
 DEFAULT_TEST_DIR = Path('tests')
 DEFAULT_COMMAND = ['uv', 'run', 'main.py']
 TEST_FILE_EXTENSION = '.pep'
 EXPECTED_OUTPUT_EXTENSION = '.expected'
 TIMEOUT_SECONDS = 10
 
-# --- Helper Functions ---
-
 def print_header(text: str, level: int = 1) -> None:
-    """Prints a formatted header."""
     color = Fore.CYAN if level == 1 else Fore.MAGENTA
     line = "=" * 25
     print(f"\n{color}{line} {text} {line}{Style.RESET_ALL}")
 
 def print_diff(expected: str, actual: str) -> None:
-    """Prints a unified diff between expected and actual strings."""
     print(f"{Fore.YELLOW}--- Diff ---{Style.RESET_ALL}")
     diff = difflib.unified_diff(
         expected.splitlines(keepends=True),
@@ -57,16 +50,6 @@ def print_diff(expected: str, actual: str) -> None:
 
 
 def run_test_process(command: List[str], test_file_path: Path) -> Dict[str, Any]:
-    """
-    Runs the test interpreter/compiler as a subprocess.
-
-    Returns a dictionary containing:
-        - stdout (str): Captured standard output.
-        - stderr (str): Captured standard error.
-        - returncode (int): Exit code of the process.
-        - error (Optional[str]): Error message if the runner failed (e.g., timeout, file not found).
-        - timeout (bool): True if the process timed out.
-    """
     full_command = command + [str(test_file_path)]
     result_data = {
         'stdout': '',
@@ -81,7 +64,7 @@ def run_test_process(command: List[str], test_file_path: Path) -> Dict[str, Any]
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SECONDS,
-            check=False,  # Don't raise exception on non-zero exit code
+            check=False,
         )
         result_data['stdout'] = process.stdout
         result_data['stderr'] = process.stderr
@@ -104,13 +87,6 @@ def check_test_result(
     run_result: Dict[str, Any],
     expected_output: Optional[str]
 ) -> Tuple[bool, str]:
-    """
-    Checks if the test passed based on run result and expected output.
-
-    Returns:
-        - success (bool): True if the test passed.
-        - reason (str): Explanation of success or failure.
-    """
     if run_result['error']:
         return False, f"Runner error: {run_result['error']}"
     if run_result['timeout']:
@@ -119,25 +95,16 @@ def check_test_result(
         return False, f"Exited with non-zero status code: {run_result['returncode']}"
 
     if expected_output is None:
-        # No .expected file, just check for success code and empty stderr
         if run_result['stderr']:
              return False, f"Expected no stderr, but got stderr (no .expected file found)"
         return True, "Passed (Exit code 0, no stderr, no .expected file)"
 
-    # We have expected output
     actual_output = run_result['stdout'].strip()
     if actual_output != expected_output:
         return False, "Output mismatch"
 
-    # Optional: Check if stderr should be empty when output matches?
-    # You might allow stderr for warnings even on success. Let's allow it for now.
-    # if run_result['stderr']:
-    #     print(f"{Fore.YELLOW}Warning: Test passed but produced stderr:{Style.RESET_ALL}\n{run_result['stderr']}")
-
     return True, "Passed (Exit code 0, output matches expected)"
 
-
-# --- Main Execution ---
 
 def main() -> None:
     parser = argparse.ArgumentParser(description='Run Pepper language tests.')
@@ -165,12 +132,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Validate test directory
     if not args.test_dir.is_dir():
         print(f"{Fore.RED}Error: Test directory '{args.test_dir}' not found.{Style.RESET_ALL}", file=sys.stderr)
         sys.exit(1)
 
-    # Validate command exists (basic check)
     if not shutil.which(args.command[0]):
          print(
             f"{Fore.YELLOW}Warning: Command '{args.command[0]}' not found in PATH. "
@@ -178,14 +143,12 @@ def main() -> None:
             file=sys.stderr
         )
 
-    # Discover test files
     all_test_files = sorted(args.test_dir.glob(f'*{TEST_FILE_EXTENSION}'))
 
     if not all_test_files:
         print(f"{Fore.YELLOW}No test files (*{TEST_FILE_EXTENSION}) found in '{args.test_dir}'.{Style.RESET_ALL}")
         sys.exit(0)
 
-    # Filter tests if a filter is provided
     if args.test_filter:
         test_files_to_run = [
             f for f in all_test_files if args.test_filter in f.name
@@ -200,7 +163,7 @@ def main() -> None:
 
     total_tests = len(test_files_to_run)
     passed_tests = 0
-    failed_tests_info = [] # Store info about failures
+    failed_tests_info = []
 
     print_header("PEPPER LANGUAGE TEST SUITE", level=1)
     print(f"Test directory: {args.test_dir.resolve()}")
@@ -214,7 +177,6 @@ def main() -> None:
         expected_output_path = test_file_path.with_suffix(EXPECTED_OUTPUT_EXTENSION)
         expected_output: Optional[str] = None
 
-        # Read test file content (optional) and expected output
         try:
             test_content = test_file_path.read_text()
             if args.verbose:
@@ -234,18 +196,14 @@ def main() -> None:
         except Exception as e:
             print(f"{Fore.RED}Error reading test or expected file: {e}{Style.RESET_ALL}")
             failed_tests_info.append((test_name, f"File reading error: {e}"))
-            continue # Skip running this test
+            continue
 
-        # Run the test process
         run_result = run_test_process(args.command, test_file_path)
 
-        # Check the result
         success, reason = check_test_result(test_file_path, run_result, expected_output)
 
-        # --- Report Results ---
         print(f"\n{Fore.YELLOW}--- Result ---{Style.RESET_ALL}")
 
-        # Print Status (Success/Failure)
         if success:
             print(f"{Fore.GREEN}✓ PASSED{Style.RESET_ALL} ({reason})")
             passed_tests += 1
@@ -253,11 +211,9 @@ def main() -> None:
             print(f"{Fore.RED}✗ FAILED{Style.RESET_ALL} ({reason})")
             failed_tests_info.append((test_name, reason))
 
-            # Show diff if the failure was due to output mismatch
             if reason == "Output mismatch" and expected_output is not None:
                  print_diff(expected_output, run_result['stdout'])
             else:
-                # Show stdout/stderr for other failures
                  if run_result['stdout']:
                       print(f"\n{Fore.YELLOW}--- Stdout ---{Style.RESET_ALL}")
                       print(run_result['stdout'].strip())
@@ -266,7 +222,6 @@ def main() -> None:
                      print(f"{Fore.RED}{run_result['stderr'].strip()}{Style.RESET_ALL}")
 
 
-    # --- Print Summary ---
     print_header("TEST SUMMARY", level=1)
     print(f"Total tests run: {total_tests}")
     print(f"Passed: {passed_tests}")
@@ -277,7 +232,7 @@ def main() -> None:
         for name, reason in failed_tests_info:
             print(f"- {name}: {reason}")
         print(f"\n{Fore.RED}Some tests failed.{Style.RESET_ALL}")
-        sys.exit(1) # Exit with non-zero code if tests failed
+        sys.exit(1)
     else:
         print(f"\n{Fore.GREEN}All tests passed!{Style.RESET_ALL}")
         sys.exit(0)
