@@ -12,3 +12,7 @@ true
 false
 true
 list
+Random float between 0 and 1: 0.5714025946899135
+Random scoped seed float between 0 and 1: 0.36152277491407514
+Random int between 0 and 10: 6
+Random int between 5 and 15: 12

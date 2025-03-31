@@ -1,42 +1,43 @@
-LET name:string = "world" 
+? 10
+LET name:string = "world"
 
-LET upper_name:string = upper FROM name ()
+LET upper_name:string = upper FROM string name _
+SHOW(upper_name) %% Output: WORLD
 
-SHOW(upper_name)
-
-SHOW(lower FROM "TESTING 123" ()) %% Output: testing 123
-
+SHOW(lower FROM string "TESTING 123" _) %% Output: testing 123
 
 LET message:string = "Hello There"
-LET len:int = str_len FROM message ()
-SHOW(len)
+LET length:int = len FROM string message _
+SHOW(length) %% Output: 11
 
+SHOW(sqrt FROM math 16.0 _) %% Output: 4.0
+SHOW(sqrt FROM math 25 _)   %% Output: 5.0
+LET x:int = 100
+SHOW(sqrt FROM math x _)     %% Output: 10.0
 
-SHOW(sqrt FROM 16.0 ())
-SHOW(sqrt FROM 25 ())
-LET x:int = 100 
-SHOW(sqrt FROM x ())
-
-%% --- Examples using functions that DO take arguments ---
-
-%% pow needs an exponent argument
 LET three:int = 3
-SHOW(pow FROM 2 (three))
-SHOW(pow FROM 10 (2))
+SHOW(pow FROM math 2 (three)) %% Output: 8.0
+SHOW(pow FROM math 10 (2))    %% Output: 100.0
 
-%% replace needs a list argument [old, new]
 LET word:string = "mississippi"
-LET replaced:string = replace FROM word (["iss", "a"])
-SHOW(replaced)
+LET replaced:string = replace FROM string word ("iss", "a") %% Args are now comma-separated
+SHOW(replaced) %% Output: massassappa
 
-%% split needs a delimiter string argument
 LET csv:string = "apple,banana,cherry"
-LET items:list = split FROM csv (",")
-SHOW(items)
+LET items:list = split FROM string csv (",") %% Argument directly in parentheses
+SHOW(items) %% Output: ['apple', 'banana', 'cherry']
 
 
-%% --- Type checking example ---
-SHOW(is_string FROM "hello" ())
-SHOW(is_int FROM 5.0 ())
-SHOW(is_int FROM 5 ())
-SHOW(get_type FROM [true] ())
+SHOW(is_string FROM type "hello" _)  %% Output: true
+SHOW(is_int FROM type 5.0 _)        %% Output: false
+SHOW(is_int FROM type 5 _)          %% Output: true
+SHOW(get FROM type [true] _)        %% Output: list (renamed from get_type)
+
+LET rand_num:float = rnd FROM random _ _ %% Base can be _, args is _
+LET rand_num2:float = rnd FROM random 16 _ %% Base can be _, args is _
+SHOW("Random float between 0 and 1: " + rand_num)
+SHOW("Random scoped seed float between 0 and 1: " + rand_num2)
+LET rand_int: int = rnd FROM random _ (10)
+SHOW("Random int between 0 and 10: " + rand_int)
+REAS rand_int = rnd FROM random _ (5, 15)
+SHOW("Random int between 5 and 15: " + rand_int)

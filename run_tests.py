@@ -9,79 +9,215 @@ from typing import List, Dict, Any, Tuple, Optional
 
 try:
     from colorama import init, Fore, Style
+
     init()
 except ImportError:
+
     class DummyStyle:
         def __getattr__(self, name: str) -> str:
             return ""
+
     Fore = DummyStyle()
     Style = DummyStyle()
     print("Warning: colorama not found. Output will not be colored.", file=sys.stderr)
 
-DEFAULT_TEST_DIR = Path('tests')
-DEFAULT_COMMAND = ['uv', 'run', 'main.py']
-TEST_FILE_EXTENSION = '.pep'
-EXPECTED_OUTPUT_EXTENSION = '.expected'
+DEFAULT_TEST_DIR = Path("tests")
+DEFAULT_COMMAND = ["uv", "run", "main.py"]
+TEST_FILE_EXTENSION = ".pep"
+EXPECTED_OUTPUT_EXTENSION = ".expected"
 TIMEOUT_SECONDS = 10
 
 
 def print_header(text: str, level: int = 1) -> None:
+    """Prints a colored header to the console."""
     color = Fore.CYAN if level == 1 else Fore.MAGENTA
     line = "=" * 25
     print(f"\n{color}{line} {text} {line}{Style.RESET_ALL}")
 
 
-def print_diff(expected: str, actual: str) -> None:
-    print(f"{Fore.YELLOW}--- Diff ---{Style.RESET_ALL}")
+def print_line_diff(expected: str, actual: str) -> None:
+    """Prints a standard unified diff (line-based)."""
+    print(f"{Fore.YELLOW}--- Line Diff (Unified) ---{Style.RESET_ALL}")
     diff = difflib.unified_diff(
         expected.splitlines(keepends=True),
         actual.splitlines(keepends=True),
-        fromfile='expected',
-        tofile='actual',
+        fromfile="expected",
+        tofile="actual",
+        lineterm="",  # Important for consistent display
     )
-    for line in diff:
-        if line.startswith('+'):
-            print(f"{Fore.GREEN}{line}{Style.RESET_ALL}", end='')
-        elif line.startswith('-'):
-            print(f"{Fore.RED}{line}{Style.RESET_ALL}", end='')
-        elif line.startswith('^'):
-            print(f"{Fore.BLUE}{line}{Style.RESET_ALL}", end='')
+    diff_lines = list(diff)
+    if not diff_lines:
+        print(f"{Fore.GREEN}Outputs are identical (line level).{Style.RESET_ALL}")
+        return
+
+    for line in diff_lines:
+        if line.startswith("+"):
+            print(f"{Fore.GREEN}{line}{Style.RESET_ALL}")
+        elif line.startswith("-"):
+            print(f"{Fore.RED}{line}{Style.RESET_ALL}")
+        elif line.startswith("^"):
+            print(f"{Fore.BLUE}{line}{Style.RESET_ALL}")
+        elif line.startswith("@"):
+            print(f"{Fore.CYAN}{line}{Style.RESET_ALL}")
         else:
-            print(line, end='')
-    print(f"{Fore.YELLOW}------------{Style.RESET_ALL}")
+            # Keep explicit space for context lines for clarity
+            print(
+                f" {line}"
+            )  # Add space for context lines explicitly if difflib doesn't
+    print(f"{Fore.YELLOW}---------------------------{Style.RESET_ALL}")
 
 
-def run_test_process(command: List[str], test_file_path: Path, debug= False) -> Dict[str, Any]:
+def print_char_hunk_diff(expected: str, actual: str, context_chars: int = 15) -> None:
+    """Prints a character-by-character diff in hunks with context."""
+    print(
+        f"{Fore.YELLOW}--- Character Diff (Hunks, Context: {context_chars}) ---{Style.RESET_ALL}"
+    )
+
+    # autojunk=False is important for seeing all differences
+    matcher = difflib.SequenceMatcher(None, expected, actual, autojunk=False)
+
+    has_diff = False
+    # Use get_grouped_opcodes to get hunks with n context characters around changes
+    for group in matcher.get_grouped_opcodes(n=context_chars):
+        has_diff = True  # Mark that we found differences to print
+        print(
+            f"{Fore.CYAN}--- Hunk (Indices: Exp {group[0][1]}-{group[-1][2]}, Act {group[0][3]}-{group[-1][4]}) ---{Style.RESET_ALL}"
+        )
+
+        for tag, i1, i2, j1, j2 in group:
+            expected_segment = expected[i1:i2]
+            actual_segment = actual[j1:j2]
+
+            # Represent segments line by line for readability
+            expected_lines = (
+                expected_segment.splitlines(keepends=True) if expected_segment else []
+            )
+            actual_lines = (
+                actual_segment.splitlines(keepends=True) if actual_segment else []
+            )
+
+            # Ensure consistent newline handling for segment display logic
+            if expected_segment and not expected_segment.endswith(("\n", "\r")):
+                if not expected_lines:
+                    expected_lines.append("")  # Handle empty segment case
+                expected_lines[-1] += (
+                    Style.DIM + "[\\n]" + Style.RESET_ALL
+                )  # Indicate missing newline visually
+
+            if actual_segment and not actual_segment.endswith(("\n", "\r")):
+                if not actual_lines:
+                    actual_lines.append("")  # Handle empty segment case
+                actual_lines[-1] += (
+                    Style.DIM + "[\\n]" + Style.RESET_ALL
+                )  # Indicate missing newline visually
+
+            if tag == "equal":
+                for line in expected_lines:
+                    # Context lines prefixed with space, no extra color unless needed
+                    print(f"  {line.rstrip()}")
+            elif tag == "replace":
+                # Use SequenceMatcher again *within* the replaced segment for char highlights
+                sub_matcher = difflib.SequenceMatcher(
+                    None, expected_segment, actual_segment, autojunk=False
+                )
+                # Print deleted part with highlights
+                for eline in expected_lines:
+                    line_buffer = f"{Fore.RED}- "
+                    offset = 0
+                    for sub_tag, si1, si2, sj1, sj2 in sub_matcher.get_opcodes():
+                        # Apply highlights based on sub-matcher relative to the *segment*
+                        seg_part = expected_segment[si1:si2]
+                        # This logic needs refinement if replacement spans multiple lines
+                        # For simplicity here, highlighting assumes changes mostly within lines
+                        if sub_tag == "equal":
+                            line_buffer += f"{Style.RESET_ALL}{Fore.RED}{seg_part}"
+                        elif sub_tag == "delete" or sub_tag == "replace":
+                            line_buffer += f"{Style.BRIGHT}{seg_part}{Style.NORMAL}"
+                    line_buffer += Style.RESET_ALL
+                    # Basic split for multiline highlight (may not be perfect alignment)
+                    if eline in line_buffer:  # Crude check if this line had changes
+                        print(line_buffer.replace(eline, eline.rstrip()))
+                    else:
+                        print(
+                            f"{Fore.RED}- {eline.rstrip()}{Style.RESET_ALL}"
+                        )  # Fallback
+
+                # Print added part with highlights
+                for aline in actual_lines:
+                    line_buffer = f"{Fore.GREEN}+ "
+                    offset = 0
+                    for sub_tag, si1, si2, sj1, sj2 in sub_matcher.get_opcodes():
+                        seg_part = actual_segment[sj1:sj2]
+                        if sub_tag == "equal":
+                            line_buffer += f"{Style.RESET_ALL}{Fore.GREEN}{seg_part}"
+                        elif sub_tag == "insert" or sub_tag == "replace":
+                            line_buffer += f"{Style.BRIGHT}{seg_part}{Style.NORMAL}"
+                    line_buffer += Style.RESET_ALL
+                    if aline in line_buffer:
+                        print(line_buffer.replace(aline, aline.rstrip()))
+                    else:
+                        print(
+                            f"{Fore.GREEN}+ {aline.rstrip()}{Style.RESET_ALL}"
+                        )  # Fallback
+
+            elif tag == "delete":
+                for line in expected_lines:
+                    print(f"{Fore.RED}- {line.rstrip()}{Style.RESET_ALL}")
+            elif tag == "insert":
+                for line in actual_lines:
+                    print(f"{Fore.GREEN}+ {line.rstrip()}{Style.RESET_ALL}")
+
+    if not has_diff:
+        print(f"{Fore.GREEN}Outputs are identical (character level).{Style.RESET_ALL}")
+
+    print(f"{Fore.YELLOW}--------------------------------------{Style.RESET_ALL}")
+
+
+def run_test_process(
+    command: List[str], test_file_path: Path, debug=False
+) -> Dict[str, Any]:
+    """Runs the test command as a subprocess and captures output."""
     full_command = command + [str(test_file_path)]
     if debug:
-        full_command.append('--debug')
+        full_command.append("--debug")
     result_data = {
-        'stdout': '',
-        'stderr': '',
-        'returncode': -1,
-        'error': None,
-        'timeout': False,
+        "stdout": "",
+        "stderr": "",
+        "returncode": -1,
+        "error": None,
+        "timeout": False,
     }
     try:
         process = subprocess.run(
             full_command,
             capture_output=True,
-            text=True,
+            text=True,  # Decodes using default locale encoding
             timeout=TIMEOUT_SECONDS,
-            check=False,
+            check=False,  # Don't raise exception on non-zero exit
+            encoding="utf-8",  # Be explicit about encoding
+            errors="replace",  # Handle potential decoding errors
         )
-        result_data['stdout'] = process.stdout
-        result_data['stderr'] = process.stderr
-        result_data['returncode'] = process.returncode
+        result_data["stdout"] = process.stdout
+        result_data["stderr"] = process.stderr
+        result_data["returncode"] = process.returncode
     except subprocess.TimeoutExpired as e:
-        result_data['error'] = f"TimeoutExpired: Process exceeded {TIMEOUT_SECONDS} seconds."
-        result_data['stdout'] = e.stdout or ''
-        result_data['stderr'] = e.stderr or ''
-        result_data['timeout'] = True
+        result_data["error"] = (
+            f"TimeoutExpired: Process exceeded {TIMEOUT_SECONDS} seconds."
+        )
+        # Decode stdout/stderr safely if they exist on timeout
+        result_data["stdout"] = (
+            e.stdout.decode("utf-8", errors="replace") if e.stdout else ""
+        )
+        result_data["stderr"] = (
+            e.stderr.decode("utf-8", errors="replace") if e.stderr else ""
+        )
+        result_data["timeout"] = True
     except FileNotFoundError:
-        result_data['error'] = f"FileNotFoundError: Command '{full_command[0]}' not found. Is it installed and in PATH?"
+        result_data["error"] = (
+            f"FileNotFoundError: Command '{full_command[0]}' not found. Is it installed and in PATH?"
+        )
     except Exception as e:
-        result_data['error'] = f"Unexpected runner error: {type(e).__name__}: {e}"
+        result_data["error"] = f"Unexpected runner error: {type(e).__name__}: {e}"
 
     return result_data
 
@@ -89,76 +225,152 @@ def run_test_process(command: List[str], test_file_path: Path, debug= False) -> 
 def check_test_result(
     test_file: Path,
     run_result: Dict[str, Any],
-    expected_output: Optional[str]
-) -> Tuple[bool, str]:
-    if run_result['error']:
-        return False, f"Runner error: {run_result['error']}"
-    if run_result['timeout']:
-        return False, "Test timed out"
-    if run_result['returncode'] != 0:
-        return False, f"Exited with non-zero status code: {run_result['returncode']}"
+    expected_output: Optional[str],  # Expects already normalized expected output
+) -> Tuple[bool, str, Optional[str]]:  # Return actual output for diffing
+    """
+    Checks the test result against expected output and conditions.
 
+    Returns:
+        Tuple[bool, str, Optional[str]]: (success_status, reason_string, actual_stdout_for_diff)
+        The actual_stdout_for_diff is normalized but potentially unstripped.
+    """
+    if run_result["error"]:
+        return (
+            False,
+            f"Runner error: {run_result['error']}",
+            run_result["stdout"],
+        )  # Return raw output on runner error
+    if run_result["timeout"]:
+        # Return potentially partial output on timeout, normalized
+        actual_on_timeout = (
+            run_result["stdout"].replace("\r\n", "\n").replace("\r", "\n")
+        )
+        return False, "Test timed out", actual_on_timeout
+    if run_result["returncode"] != 0:
+        # Return normalized output on non-zero exit
+        actual_on_error = run_result["stdout"].replace("\r\n", "\n").replace("\r", "\n")
+        return (
+            False,
+            f"Exited with non-zero status code: {run_result['returncode']}",
+            actual_on_error,
+        )
+
+    # Normalize actual output's line endings (expected is pre-normalized)
+    actual_output_normalized = (
+        run_result["stdout"].replace("\r\n", "\n").replace("\r", "\n")
+    )
+
+    # Case 1: No expected output file (.expected does not exist)
     if expected_output is None:
-        if run_result['stderr']:
-            return False, f"Expected no stderr, but got stderr (no .expected file found)"
-        return True, "Passed (Exit code 0, no stderr, no .expected file)"
+        if run_result["stderr"]:  # Fail if there's unexpected stderr
+            return (
+                False,
+                f"Expected no stderr (no .expected file), but got stderr",
+                actual_output_normalized,
+            )
+        # Pass if return code 0 and no stderr
+        return (
+            True,
+            "Passed (Exit code 0, no stderr, no .expected file)",
+            actual_output_normalized,
+        )
 
-    actual_output = run_result['stdout'].strip()
-    if actual_output != expected_output:
-        return False, "Output mismatch"
+    # Case 2: Expected output file exists
+    # Compare normalized outputs, stripping trailing whitespace ONLY for the boolean check
+    actual_stripped = actual_output_normalized.strip()
+    expected_stripped = expected_output.strip()  # expected_output is already normalized
 
-    return True, "Passed (Exit code 0, output matches expected)"
+    if actual_stripped != expected_stripped:
+        # Output mismatch: return the *normalized but unstripped* actual output for detailed diffing
+        return False, "Output mismatch", actual_output_normalized
+
+    # If outputs match after stripping, check for unexpected stderr
+    if run_result["stderr"]:
+        # Output is correct, but stderr might indicate warnings or non-fatal issues. Flag as failure.
+        return (
+            False,
+            "Output matches, but unexpected stderr produced",
+            actual_output_normalized,
+        )
+
+    # Passed: return code 0, output matches (ignoring trailing whitespace), no unexpected stderr
+    return (
+        True,
+        "Passed (Exit code 0, output matches expected)",
+        actual_output_normalized,
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='Run Pepper language tests.')
+    """Main function to parse arguments and run the test suite."""
+    parser = argparse.ArgumentParser(description="Run Pepper language tests.")
     parser.add_argument(
-        'test_filter',
-        nargs='?',
-        help='Optional: Run only tests whose filename contains this string (e.g., "01", "variables").'
+        "test_filter",
+        nargs="?",
+        help='Optional: Run only tests whose filename contains this string (e.g., "01", "variables").',
     )
     parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Print test file contents and expected output.'
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print test file contents and expected output.",
     )
     parser.add_argument(
-        '--test-dir',
+        "--test-dir",
         type=Path,
         default=DEFAULT_TEST_DIR,
-        help=f'Directory containing test files (default: {DEFAULT_TEST_DIR}).'
+        help=f"Directory containing test files (default: {DEFAULT_TEST_DIR}).",
     )
-    parser.add_argument("-d", "--debug", action="store_true",
-                        help="Enable detailed execution tracing.")
     parser.add_argument(
-        '--command',
-        nargs='+',
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Pass --debug flag to the command being run.",
+    )
+    parser.add_argument(
+        "--command",
+        nargs="+",
         default=DEFAULT_COMMAND,
-        help=f'Command to run the interpreter/compiler (default: {" ".join(DEFAULT_COMMAND)}).'
+        help=f'Command to run the interpreter/compiler (default: {" ".join(DEFAULT_COMMAND)}).',
+    )
+    parser.add_argument(
+        "--diff",
+        choices=["line", "hunk", "both"],  # Changed 'char' to 'hunk'
+        default="hunk",  # Default to hunk-based character diff
+        help="Type of diff to show on mismatch (default: hunk).",
+    )
+    parser.add_argument(
+        "--context",
+        type=int,
+        default=15,  # Default context characters for hunk diff
+        help="Number of context characters for hunk diff (default: 15).",
     )
     args = parser.parse_args()
 
     if not args.test_dir.is_dir():
-        print(f"{Fore.RED}Error: Test directory '{args.test_dir}' not found.{Style.RESET_ALL}", file=sys.stderr)
+        print(
+            f"{Fore.RED}Error: Test directory '{args.test_dir}' not found.{Style.RESET_ALL}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if not shutil.which(args.command[0]):
         print(
             f"{Fore.YELLOW}Warning: Command '{args.command[0]}' not found in PATH. "
             f"The test runner might fail.{Style.RESET_ALL}",
-            file=sys.stderr
+            file=sys.stderr,
         )
 
-    all_test_files = sorted(args.test_dir.glob(f'*{TEST_FILE_EXTENSION}'))
+    all_test_files = sorted(args.test_dir.glob(f"*{TEST_FILE_EXTENSION}"))
 
     if not all_test_files:
-        print(f"{Fore.YELLOW}No test files (*{TEST_FILE_EXTENSION}) found in '{args.test_dir}'.{Style.RESET_ALL}")
+        print(
+            f"{Fore.YELLOW}No test files (*{TEST_FILE_EXTENSION}) found in '{args.test_dir}'.{Style.RESET_ALL}"
+        )
         sys.exit(0)
 
     if args.test_filter:
-        test_files_to_run = [
-            f for f in all_test_files if args.test_filter in f.name
-        ]
+        test_files_to_run = [f for f in all_test_files if args.test_filter in f.name]
         if not test_files_to_run:
             print(
                 f"{Fore.RED}No test files found matching filter '{args.test_filter}' in '{args.test_dir}'.{Style.RESET_ALL}"
@@ -174,47 +386,72 @@ def main() -> None:
     print_header("PEPPER LANGUAGE TEST SUITE", level=1)
     print(f"Test directory: {args.test_dir.resolve()}")
     print(f"Interpreter command: {' '.join(args.command)}")
+    print(f"Diff type on mismatch: {args.diff}")
+    if "hunk" in args.diff or "both" in args.diff:
+        print(f"Hunk diff context chars: {args.context}")
     print(f"Running {total_tests} test(s)...")
 
     for test_file_path in test_files_to_run:
         test_name = test_file_path.name
         print_header(f"Running: {test_name}", level=2)
 
-        expected_output_path = test_file_path.with_suffix(
-            EXPECTED_OUTPUT_EXTENSION)
-        expected_output: Optional[str] = None
+        expected_output_path = test_file_path.with_suffix(EXPECTED_OUTPUT_EXTENSION)
+        expected_output_content: Optional[str] = None  # Raw content from file
+        normalized_expected_output: Optional[str] = (
+            None  # Normalized for comparison/diff
+        )
 
         try:
-            test_content = test_file_path.read_text()
+            # Read test file content
+            test_content = test_file_path.read_text(encoding="utf-8")
             if args.verbose:
                 print(
-                    f"{Fore.YELLOW}--- Test Contents ({test_name}) ---{Style.RESET_ALL}")
-                print(test_content.strip())
+                    f"{Fore.YELLOW}--- Test Contents ({test_name}) ---{Style.RESET_ALL}"
+                )
+                print(test_content.strip())  # Show stripped for brevity
                 print(
-                    f"{Fore.YELLOW}------------------------------------{Style.RESET_ALL}")
+                    f"{Fore.YELLOW}------------------------------------{Style.RESET_ALL}"
+                )
 
+            # Read and normalize expected output file content if it exists
             if expected_output_path.is_file():
-                expected_output = expected_output_path.read_text()
+                expected_output_content = expected_output_path.read_text(
+                    encoding="utf-8"
+                )
+                # Normalize line endings immediately after reading
+                normalized_expected_output = expected_output_content.replace(
+                    "\r\n", "\n"
+                ).replace("\r", "\n")
+
                 if args.verbose:
                     print(
-                        f"{Fore.YELLOW}--- Expected Output ({expected_output_path.name}) ---{Style.RESET_ALL}")
-                    print(expected_output.strip())
+                        f"{Fore.YELLOW}--- Expected Output ({expected_output_path.name}) ---{Style.RESET_ALL}"
+                    )
+                    # Show stripped normalized version for brevity in verbose mode
+                    print(normalized_expected_output.strip())
                     print(
-                        f"{Fore.YELLOW}-----------------------------------------{Style.RESET_ALL}")
+                        f"{Fore.YELLOW}-----------------------------------------{Style.RESET_ALL}"
+                    )
             elif args.verbose:
                 print(
-                    f"{Fore.YELLOW}--- Expected Output: (None - {expected_output_path.name} not found) ---{Style.RESET_ALL}")
+                    f"{Fore.YELLOW}--- Expected Output: (None - {expected_output_path.name} not found) ---{Style.RESET_ALL}"
+                )
 
         except Exception as e:
             print(
-                f"{Fore.RED}Error reading test or expected file: {e}{Style.RESET_ALL}")
+                f"{Fore.RED}Error reading test or expected file: {e}{Style.RESET_ALL}"
+            )
             failed_tests_info.append((test_name, f"File reading error: {e}"))
-            continue
+            continue  # Skip to the next test
 
+        # Run the actual test process
         run_result = run_test_process(args.command, test_file_path, args.debug)
 
-        success, reason = check_test_result(
-            test_file_path, run_result, expected_output)
+        # Check the results using the normalized expected output
+        # actual_output_for_diff will be normalized but potentially unstripped
+        success, reason, actual_output_for_diff = check_test_result(
+            test_file_path, run_result, normalized_expected_output
+        )
 
         print(f"\n{Fore.YELLOW}--- Result ---{Style.RESET_ALL}")
 
@@ -225,32 +462,56 @@ def main() -> None:
             print(f"{Fore.RED}✗ FAILED{Style.RESET_ALL} ({reason})")
             failed_tests_info.append((test_name, reason))
 
-            if reason == "Output mismatch" and expected_output is not None:
-                print_diff(expected_output, run_result['stdout'])
-            else:
-                if run_result['stdout']:
-                    print(f"\n{Fore.YELLOW}--- Stdout ---{Style.RESET_ALL}")
-                    print(run_result['stdout'].strip())
-                if run_result['stderr']:
-                    print(f"\n{Fore.YELLOW}--- Stderr ---{Style.RESET_ALL}")
-                    print(
-                        f"{Fore.RED}{run_result['stderr'].strip()}{Style.RESET_ALL}")
+            # Display diffs ONLY if failure was due to output mismatch AND there was expected output
+            if reason == "Output mismatch" and normalized_expected_output is not None:
+                # Use normalized outputs for diffing.
+                # Line diff often works better visually with stripped content.
+                # Hunk diff can show context including surrounding whitespace.
+                expected_for_diff = normalized_expected_output
+                # actual_output_for_diff is already normalized from check_test_result
 
+                if args.diff == "line" or args.diff == "both":
+                    # Provide stripped versions to unified line diff
+                    print_line_diff(
+                        expected_for_diff.strip(), actual_output_for_diff.strip()
+                    )
+                if args.diff == "hunk" or args.diff == "both":
+                    # Provide unstripped (but normalized) versions to hunk diff
+                    print_char_hunk_diff(
+                        expected_for_diff, actual_output_for_diff, args.context
+                    )
+
+            # Show stdout only if it wasn't already shown via diffs or if it's relevant to non-mismatch errors
+            if reason != "Output mismatch" and run_result["stdout"]:
+                print(f"\n{Fore.YELLOW}--- Stdout ---{Style.RESET_ALL}")
+                print(run_result["stdout"].strip())  # Show stripped actual stdout
+
+            # Always show stderr on failure if present
+            if run_result["stderr"]:
+                print(f"\n{Fore.YELLOW}--- Stderr ---{Style.RESET_ALL}")
+                print(
+                    f"{Fore.RED}{run_result['stderr'].strip()}{Style.RESET_ALL}"
+                )  # Show stripped stderr
+
+    # --- Test Suite Summary ---
     print_header("TEST SUMMARY", level=1)
+    failed_count = total_tests - passed_tests
     print(f"Total tests run: {total_tests}")
-    print(f"Passed: {passed_tests}")
-    print(f"Failed: {total_tests - passed_tests}")
+    print(f"{Fore.GREEN}Passed: {passed_tests}{Style.RESET_ALL}")
+    print(
+        f"{Fore.RED if failed_count > 0 else Style.RESET_ALL}Failed: {failed_count}{Style.RESET_ALL}"
+    )
 
     if failed_tests_info:
-        print(f"\n{Fore.RED}--- Failed Tests ---{Style.RESET_ALL}")
+        print(f"\n{Fore.RED}--- Failed Tests Summary ---{Style.RESET_ALL}")
         for name, reason in failed_tests_info:
             print(f"- {name}: {reason}")
         print(f"\n{Fore.RED}Some tests failed.{Style.RESET_ALL}")
-        sys.exit(1)
+        sys.exit(1)  # Exit with non-zero status code for CI/automation
     else:
         print(f"\n{Fore.GREEN}All tests passed!{Style.RESET_ALL}")
-        sys.exit(0)
+        sys.exit(0)  # Exit with zero status code for success
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -24,159 +24,240 @@ RETURN_KEYWORD = "RETURN"
 
 
 class StandardLibrary:
-    """Encapsulates standard library functions for the Pepper language."""
+    """Encapsulates standard library functions for the Pepper language, organized by namespace."""
 
     def __init__(self, evaluator):
         self._evaluator = evaluator
         self._debug = evaluator.debug
-        # Ensure _get_python_type_name is accessible if needed (it's global in the original code)
-        self.functions = {
-            # String Functions
-            "upper": self.string_upper,
-            "lower": self.string_lower,
-            "str_len": self.string_len,
-            "trim": self.string_trim,
-            "replace": self.string_replace,
-            "split": self.string_split,
-
-            # Math Functions
-            "sqrt": self.math_sqrt,
-            "pow": self.math_pow,
-            "abs": self.math_abs,
-            "rnd": self.math_rnd,
-            "floor": self.math_floor,
-            "ceil": self.math_ceil,
-
-            # Type Checking Functions
-            "is_int": self.type_is_int,
-            "is_float": self.type_is_float,
-            "is_string": self.type_is_string,
-            "is_list": self.type_is_list,
-            "is_bool": self.type_is_bool,
-            "get_type": self.type_get_type,
+        # Nested dictionary for namespaced functions
+        self.libraries = {
+            "string": {
+                "upper": self.string_upper,
+                "lower": self.string_lower,
+                "len": self.string_len,  # Renamed str_len to len for brevity
+                "trim": self.string_trim,
+                "replace": self.string_replace,
+                "split": self.string_split,
+            },
+            "math": {
+                "sqrt": self.math_sqrt,
+                "pow": self.math_pow,
+                "abs": self.math_abs,
+                "floor": self.math_floor,
+                "ceil": self.math_ceil,
+            },
+            "random": {  # Added random namespace
+                "rnd": self.math_rnd,  # rnd now lives here
+            },
+            "type": {  # Renamed from check to type
+                "is_int": self.type_is_int,
+                "is_float": self.type_is_float,
+                "is_string": self.type_is_string,
+                "is_list": self.type_is_list,
+                "is_bool": self.type_is_bool,
+                "get": self.type_get_type,  # Renamed get_type to get
+            },
         }
 
+    # Helper to get evaluator's convert function
     def _convert(self, value, source_type, target_type):
-        # Make sure the global _raise is available or handle errors differently
         try:
-             return self._evaluator._convert_type(value, source_type, target_type)
+            return self._evaluator._convert_type(value, source_type, target_type)
         except Exception as e:
-             # Propagate conversion errors clearly
-             raise ValueError(f"Stdlib conversion failed: {e}")
-
+            raise ValueError(f"Stdlib conversion failed: {e}")
 
     # --- String Functions ---
-    # CORRECTED SIGNATURE: (self, base_value, base_type, arg_value, arg_type)
+    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
 
-    def string_upper(self, base_value, base_type, arg_value, arg_type):
-        if base_type != "string": raise ValueError("'upper' requires a string base value")
+    def string_upper(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'string.upper' takes no arguments")
+        if base_type != "string":
+            raise ValueError("'string.upper' requires a string base value")
         return base_value.upper()
 
-    def string_lower(self, base_value, base_type, arg_value, arg_type):
-        if base_type != "string": raise ValueError("'lower' requires a string base value")
+    def string_lower(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'string.lower' takes no arguments")
+        if base_type != "string":
+            raise ValueError("'string.lower' requires a string base value")
         return base_value.lower()
 
-    def string_len(self, base_value, base_type, arg_value, arg_type):
-        if base_type != "string": raise ValueError("'str_len' requires a string base value")
+    def string_len(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'string.len' takes no arguments")
+        # Works on lists too! Check type.
+        if base_type not in ("string", "list"):
+            raise ValueError(
+                f"'string.len' requires a string or list base value, got {base_type}"
+            )
         return len(base_value)
 
-    def string_trim(self, base_value, base_type, arg_value, arg_type):
-        if base_type != "string": raise ValueError("'trim' requires a string base value")
+    def string_trim(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'string.trim' takes no arguments")
+        if base_type != "string":
+            raise ValueError("'string.trim' requires a string base value")
         return base_value.strip()
 
-    def string_replace(self, base_value, base_type, arg_value, arg_type):
-        if base_type != "string": raise ValueError("'replace' requires a string base value")
-        # Check arg_value before accessing length
-        if arg_type != "list" or arg_value is None or len(arg_value) != 2:
-            raise ValueError("'replace' requires a list argument [old_str, new_str]")
+    def string_replace(self, base_value, base_type, args):
+        if base_type != "string":
+            raise ValueError("'string.replace' requires a string base value")
+        if len(args) != 2:
+            raise ValueError(
+                "'string.replace' requires exactly two arguments: (old_str, new_str)"
+            )
 
-        # Make sure _get_python_type_name is accessible
-        old_str = self._convert(arg_value[0], _get_python_type_name(arg_value[0]), "string")
-        new_str = self._convert(arg_value[1], _get_python_type_name(arg_value[1]), "string")
+        old_str = self._convert(args[0], _get_python_type_name(args[0]), "string")
+        new_str = self._convert(args[1], _get_python_type_name(args[1]), "string")
         return base_value.replace(old_str, new_str)
 
-    def string_split(self, base_value, base_type, arg_value, arg_type):
-         if base_type != "string": raise ValueError("'split' requires a string base value")
-         # Allow splitting by empty string? No, require delimiter arg.
-         if arg_type != "string" or arg_value is None:
-             raise ValueError("'split' requires a string delimiter argument")
-         delimiter = arg_value
-         return base_value.split(delimiter)
-
+    def string_split(self, base_value, base_type, args):
+        if base_type != "string":
+            raise ValueError("'string.split' requires a string base value")
+        if len(args) != 1:
+            raise ValueError(
+                "'string.split' requires exactly one argument: (delimiter)"
+            )
+        delimiter = self._convert(args[0], _get_python_type_name(args[0]), "string")
+        # Handle splitting by empty string if desired, or disallow?
+        # Python's split() with empty string raises ValueError. Let's mimic.
+        if not delimiter:
+            raise ValueError("Cannot split string by empty delimiter")
+        return base_value.split(delimiter)
 
     # --- Math Functions ---
-    # CORRECTED SIGNATURE: (self, base_value, base_type, arg_value, arg_type)
+    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
 
-    def math_sqrt(self, base_value, base_type, arg_value, arg_type):
+    def math_sqrt(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'math.sqrt' takes no arguments")
         try:
             num_base = self._convert(base_value, base_type, "float")
         except ValueError:
-            raise ValueError("'sqrt' requires a numeric base value")
-        if num_base < 0: raise ValueError("Cannot calculate square root of a negative number")
+            raise ValueError("'math.sqrt' requires a numeric base value")
+        if num_base < 0:
+            raise ValueError("Cannot calculate square root of a negative number")
         return math.sqrt(num_base)
 
-    def math_pow(self, base_value, base_type, arg_value, arg_type):
+    def math_pow(self, base_value, base_type, args):
+        if len(args) != 1:
+            raise ValueError("'math.pow' requires exactly one argument: (exponent)")
         try:
             num_base = self._convert(base_value, base_type, "float")
         except ValueError:
-            raise ValueError("'pow' requires a numeric base value")
+            raise ValueError("'math.pow' requires a numeric base value")
         try:
-            num_exp = self._convert(arg_value, arg_type, "float")
+            # Get exponent from args[0]
+            num_exp = self._convert(args[0], _get_python_type_name(args[0]), "float")
         except ValueError:
-             raise ValueError("'pow' requires a numeric exponent argument")
+            raise ValueError("'math.pow' requires a numeric exponent argument")
         return math.pow(num_base, num_exp)
 
-    def math_abs(self, base_value, base_type, arg_value, arg_type):
+    def math_abs(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'math.abs' takes no arguments")
         try:
-            # Determine target type based on original base_type for better fidelity
             target_type = "int" if base_type == "int" else "float"
             num_base = self._convert(base_value, base_type, target_type)
-            return abs(num_base) # abs() preserves int/float
+            return abs(num_base)
         except ValueError:
-            raise ValueError("'abs' requires a numeric base value")
+            raise ValueError("'math.abs' requires a numeric base value")
 
+    def math_floor(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'math.floor' takes no arguments")
+        try:
+            num_base = self._convert(base_value, base_type, "float")
+            return math.floor(num_base)
+        except ValueError:
+            raise ValueError("'math.floor' requires a numeric base value")
 
-    def math_rnd(self, base_value, base_type, arg_value, arg_type):
-         return random.random()
+    def math_ceil(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'math.ceil' takes no arguments")
+        try:
+            num_base = self._convert(base_value, base_type, "float")
+            return math.ceil(num_base)
+        except ValueError:
+            raise ValueError("'math.ceil' requires a numeric base value")
 
-    def math_floor(self, base_value, base_type, arg_value, arg_type):
-         try:
-             num_base = self._convert(base_value, base_type, "float")
-             return math.floor(num_base) # Returns float in Python 3, but usually used as int
-         except ValueError:
-             raise ValueError("'floor' requires a numeric base value")
+    # --- Random Functions ---
+    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
+    def math_rnd(self, base_value, base_type, args: list[int]):
+        """
+        Generates a random number based on the number of integer arguments provided.
+        """
+        num_args = len(args)
+        myrandom = random
+        if base_value:
+            myrandom = random.Random()
+            myrandom.seed(base_value)
 
-    def math_ceil(self, base_value, base_type, arg_value, arg_type):
-         try:
-             num_base = self._convert(base_value, base_type, "float")
-             return math.ceil(num_base) # Returns float in Python 3, but usually used as int
-         except ValueError:
-             raise ValueError("'ceil' requires a numeric base value")
+        if num_args > 2:
+            # More specific error message is often helpful
+            raise ValueError(f"'random.rnd' takes 0, 1, or 2 arguments, got {num_args}")
 
+        match num_args:
+            case 0:
+                # No arguments: Mimic random.random()
+                return myrandom.random()  # Returns float [0.0, 1.0)
+            case 1:
+                # One argument: Mimic random.randrange(stop)
+                stop = args[0]
+                if not isinstance(stop, int):
+                    raise ValueError("random.rnd(stop): 'stop' must be an integer")
+                if stop <= 0:
+                    # random.randrange(stop) requires stop to be positive
+                    raise ValueError(
+                        "random.rnd(stop): argument 'stop' must be positive"
+                    )
+                return myrandom.randrange(stop)  # Returns int [0, stop)
+            case 2:
+                # Two arguments: Mimic random.randint(start, stop)
+                start = args[0]
+                stop = args[1]
+                if not isinstance(start, int) or not isinstance(stop, int):
+                    raise ValueError(
+                        "random.rnd(start, stop): arguments must be integers"
+                    )
+                if start > stop:
+                    # random.randint(a, b) requires a <= b
+                    raise ValueError(
+                        "random.rnd(start, stop): 'start' cannot be greater than 'stop'"
+                    )
+                return myrandom.randint(start, stop)  # Returns int [start, stop]
 
     # --- Type Checking Functions ---
-    # CORRECTED SIGNATURE: (self, base_value, base_type, arg_value, arg_type)
+    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
 
-    def _type_check(self, base_type, target_type): # Simplified helper
-         return base_type == target_type
+    def _type_check(
+        self, base_type, target_type, args
+    ):  # Added args for signature match
+        if len(args) != 0:
+            raise ValueError("Type check functions take no arguments")
+        return base_type == target_type
 
-    def type_is_int(self, base_value, base_type, arg_value, arg_type):
-        return self._type_check(base_type, "int")
+    def type_is_int(self, base_value, base_type, args):
+        return self._type_check(base_type, "int", args)
 
-    def type_is_float(self, base_value, base_type, arg_value, arg_type):
-        return self._type_check(base_type, "float")
+    def type_is_float(self, base_value, base_type, args):
+        return self._type_check(base_type, "float", args)
 
-    def type_is_string(self, base_value, base_type, arg_value, arg_type):
-        return self._type_check(base_type, "string")
+    def type_is_string(self, base_value, base_type, args):
+        return self._type_check(base_type, "string", args)
 
-    def type_is_list(self, base_value, base_type, arg_value, arg_type):
-        return self._type_check(base_type, "list")
+    def type_is_list(self, base_value, base_type, args):
+        return self._type_check(base_type, "list", args)
 
-    def type_is_bool(self, base_value, base_type, arg_value, arg_type):
-        return self._type_check(base_type, "bool")
+    def type_is_bool(self, base_value, base_type, args):
+        return self._type_check(base_type, "bool", args)
 
-    def type_get_type(self, base_value, base_type, arg_value, arg_type):
-         return base_type
+    def type_get_type(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'type.get' takes no arguments")
+        return base_type
+
 
 @dataclass
 class Function:
@@ -208,9 +289,17 @@ class ExpressionEvaluator:
             ("bool", "string"): str,
             # More sensible list to string
             ("list", "string"): lambda x: "".join(map(str, x)),
-            ("string", "int"): lambda x: int(x) if x.strip().lstrip('-').isdigit() else (_raise(ValueError(f"Cannot convert '{x}' to int"))),
-            ("string", "float"): lambda x: float(x) if _is_float(x) else (_raise(ValueError(f"Cannot convert '{x}' to float"))),
-            ("string", "bool"): lambda x: x.lower() == 'true',
+            ("string", "int"): lambda x: (
+                int(x)
+                if x.strip().lstrip("-").isdigit()
+                else (_raise(ValueError(f"Cannot convert '{x}' to int")))
+            ),
+            ("string", "float"): lambda x: (
+                float(x)
+                if _is_float(x)
+                else (_raise(ValueError(f"Cannot convert '{x}' to float")))
+            ),
+            ("string", "bool"): lambda x: x.lower() == "true",
             ("void", "any"): lambda _: None,
             # Return None when converting to void
             ("any", "void"): lambda _: None,
@@ -219,6 +308,53 @@ class ExpressionEvaluator:
             ("bool", "float"): lambda x: 1.0 if x else 0.0,  # Bool to float
         }
         self.stdlib_handler = StandardLibrary(self)
+
+    def _parse_argument_list(self, args_content_str: str) -> List[str]:
+        """Parses a comma-separated argument string, respecting brackets, parens, and quotes."""
+        if not args_content_str:
+            return []
+
+        elements = []
+        current_element = ""
+        paren_depth = 0
+        bracket_depth = 0
+        in_quotes = None  # Can be ' or "
+
+        for char in args_content_str:
+            if char in ('"', "'") and in_quotes is None:
+                in_quotes = char
+                current_element += char
+            elif char == in_quotes:
+                in_quotes = None
+                current_element += char
+            elif char == "(" and not in_quotes:
+                paren_depth += 1
+                current_element += char
+            elif char == ")" and not in_quotes:
+                paren_depth -= 1
+                current_element += char
+            elif char == "[" and not in_quotes:
+                bracket_depth += 1
+                current_element += char
+            elif char == "]" and not in_quotes:
+                bracket_depth -= 1
+                current_element += char
+            elif (
+                char == ","
+                and bracket_depth == 0
+                and paren_depth == 0
+                and not in_quotes
+            ):
+                elements.append(current_element.strip())
+                current_element = ""
+            else:
+                current_element += char
+
+        if current_element:
+            elements.append(current_element.strip())
+
+        # Filter out potentially empty strings if there were trailing commas etc.
+        return [elem for elem in elements if elem]
 
     def evaluate(self, expression: str, expected_type: Optional[str]):
         """Main evaluation method that routes to appropriate sub-evaluators"""
@@ -236,7 +372,8 @@ class ExpressionEvaluator:
             value, var_type = self.variables[expression]
             if self.debug:
                 print(
-                    f"  Variable '{expression}' found: value={value}, type={var_type}")
+                    f"  Variable '{expression}' found: value={value}, type={var_type}"
+                )
             return self._convert_type(value, var_type, expected_type)
 
         # 2. Literals
@@ -244,7 +381,8 @@ class ExpressionEvaluator:
         if literal_result is not None:
             if self.debug:
                 print(
-                    f"  Evaluated as literal: {literal_result} (requested: {expected_type})")
+                    f"  Evaluated as literal: {literal_result} (requested: {expected_type})"
+                )
             return literal_result  # _evaluate_literal now handles conversion
 
         # 3. Input Expression
@@ -256,13 +394,16 @@ class ExpressionEvaluator:
 
         # --- NEW: 4. Standard Library Call ---
         stdlib_match = re.fullmatch(
-            r"([a-zA-Z_]\w*)\s+FROM\s+(.+?)\s*\((.*)\)", expression, re.DOTALL)
+            r"([a-zA-Z_]\w*)\s+FROM\s+([a-zA-Z_]\w*)\s+(.*?)\s*(\(.*\)|\_)$",
+            expression,
+        )
         if stdlib_match:
             if self.debug:
-                print(f"  Evaluating as Standard Library call")
-            # Pass the match and expected_type to the handler
-            return self._evaluate_stdlib_call(stdlib_match, expected_type)
+                print(f"  Evaluating as Namespaced Standard Library call")
+            # Pass the match and expected_type to the new handler
+            return self._evaluate_namespaced_stdlib_call(stdlib_match, expected_type)
         # --- End NEW ---
+
         # 4. Type Conversion Expression
         type_conv_match = re.fullmatch(r"(.+?)\s*:>\s*(\w+)", expression)
         if type_conv_match:
@@ -273,7 +414,8 @@ class ExpressionEvaluator:
 
         # 5. List Literals
         list_literal_match = re.fullmatch(
-            r"\[.*\]", expression, re.DOTALL)  # Handle multiline
+            r"\[.*\]", expression, re.DOTALL
+        )  # Handle multiline
         if list_literal_match:
             if self.debug:
                 print(f"  Evaluating as list literal")
@@ -285,7 +427,7 @@ class ExpressionEvaluator:
         list_op_match = re.fullmatch(
             # Use \S+ for non-quoted values
             r'([a-zA-Z_]\w*)\s+("[^"]*"|\S+)\s+\[(a|r|n|p|P)\](?:\s+("[^"]*"|\S+))?',
-            expression
+            expression,
         )
         if list_op_match:
             if self.debug:
@@ -294,9 +436,10 @@ class ExpressionEvaluator:
             modified_list = self._evaluate_list_operation(list_op_match)
             # Update the variable directly
             list_name = list_op_match.group(1)
-            self.variables[list_name] = (
-                modified_list, self.variables[list_name][1])
-            return self._convert_type(modified_list, self.variables[list_name][1], expected_type)
+            self.variables[list_name] = (modified_list, self.variables[list_name][1])
+            return self._convert_type(
+                modified_list, self.variables[list_name][1], expected_type
+            )
 
         list_len_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[l\]", expression)
         if list_len_match:
@@ -315,8 +458,7 @@ class ExpressionEvaluator:
             return self._convert_type(choice, choice_type, expected_type)
 
         # Note: Using 1-based indexing for users
-        list_idx_match = re.fullmatch(
-            r"([a-zA-Z_]\w*)\s+\[i\]\s+(.+)", expression)
+        list_idx_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[i\]\s+(.+)", expression)
         if list_idx_match:
             if self.debug:
                 print(f"  Evaluating as list indexing (1-based)")
@@ -327,8 +469,7 @@ class ExpressionEvaluator:
             return self._convert_type(item, item_type, expected_type)
 
         # Note: Using 1-based indexing for users
-        list_find_match = re.fullmatch(
-            r"([a-zA-Z_]\w*)\s+\[f\]\s+(.+)", expression)
+        list_find_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[f\]\s+(.+)", expression)
         if list_find_match:
             if self.debug:
                 print(f"  Evaluating as list find (1-based index, 0 if not found)")
@@ -337,28 +478,33 @@ class ExpressionEvaluator:
 
         # 7. Function Call within expression (e.g. LET x:int = (5) |> addOne)
         func_call_match = re.fullmatch(
-            r"(\(.*?\)|_)\s*\|>\s*([a-zA-Z_]\w*)", expression)
+            r"(\(.*?\)|_)\s*\|>\s*([a-zA-Z_]\w*)", expression
+        )
         if func_call_match:
             if self.debug:
                 print(f"  Evaluating as function call within expression")
-        # Call the interpreter's handler, passing the expression line,
-        # the current variables, and this evaluator instance for arg evaluation
+            # Call the interpreter's handler, passing the expression line,
+            # the current variables, and this evaluator instance for arg evaluation
             try:
                 # Pass the raw expression string as the 'line' argument
                 return_value = self.interpreter.handle_function_call(
-                    expression, self.variables, self)
-            # Get the type of the actual returned value
+                    expression, self.variables, self
+                )
+                # Get the type of the actual returned value
                 return_type = _get_python_type_name(return_value)
-            # Convert the return value to the type expected by the outer expression
+                # Convert the return value to the type expected by the outer expression
                 return self._convert_type(return_value, return_type, expected_type)
             except (ValueError, TypeError, IndexError) as e:
                 # Re-raise errors from function call handling appropriately
                 raise ValueError(
-                    f"Error during function call '{expression}': {e}") from e
+                    f"Error during function call '{expression}': {e}"
+                ) from e
 
         # 8. String Concatenation (Only if '+' is present and not handled by RPN)
         # Be careful not to catch simple additions like "x + 1" if expected is numeric
-        if "+" in expression and '"' in expression:  # Basic heuristic: quotes imply potential string concat
+        if (
+            "+" in expression and '"' in expression
+        ):  # Basic heuristic: quotes imply potential string concat
             try:
                 if self.debug:
                     print(f"  Attempting string concatenation")
@@ -389,7 +535,9 @@ class ExpressionEvaluator:
 
         # 11. RPN Arithmetic/Numeric (Last resort for things that look numeric)
         # Simple check: contains digits and operators, no quotes?
-        if re.search(r"[\d\.\s+\-*/%?]", expression) and not re.search(r'"', expression):
+        if re.search(r"[\d\.\s+\-*/%?]", expression) and not re.search(
+            r'"', expression
+        ):
             try:
                 if self.debug:
                     print(f"  Attempting RPN evaluation")
@@ -416,71 +564,114 @@ class ExpressionEvaluator:
 
         # If nothing else matches, raise Error
         raise ValueError(f"Unable to evaluate expression: '{expression}'")
-  # --- NEW: Standard Library Call Handler ---
 
-    def _evaluate_stdlib_call(self, match, expected_type):
-        """Evaluates standard library function calls like 'upper FROM "hello" ()'."""
-        func_name, base_expr, arg_expr_str = match.groups()
-        func_name = func_name.lower()  # Case-insensitive function name
+    # --- NEW: Standard Library Call Handler ---
 
-        if self.debug:
-            print(
-                f"  Stdlib Call: func='{func_name}', base_expr='{base_expr}', arg_expr='{arg_expr_str}'")
-
-        # Check if function exists in the handler
-        if func_name not in self.stdlib_handler.functions:
-            raise ValueError(
-                f"Unknown standard library function: '{func_name}'")
-
-        # Evaluate the base expression
-        try:
-            # Evaluate base expression first
-            base_value = self.evaluate(base_expr, None)
-            base_type = _get_python_type_name(base_value)
-        except Exception as e:
-            raise ValueError(
-                f"Error evaluating base expression '{base_expr}' for stdlib function '{func_name}': {e}") from e
+    def _evaluate_namespaced_stdlib_call(self, match, expected_type):
+        """Evaluates namespaced stdlib calls like 'upper FROM string "hello" _' or 'replace FROM string msg ("old", "new")'."""
+        op_name, lib_name, base_expr_str, args_part = match.groups()
+        op_name = op_name.lower()
+        lib_name = lib_name.lower()
+        base_expr_str = base_expr_str.strip()
+        args_part = args_part.strip()
 
         if self.debug:
             print(
-                f"    Base '{base_expr}' evaluated to: {repr(base_value)} (type: {base_type})")
+                f"  Stdlib Call: Op='{op_name}', Lib='{lib_name}', BaseExpr='{base_expr_str}', ArgsPart='{args_part}'"
+            )
 
-        # Evaluate the argument expression (if any)
-        arg_value = None  # Default if no args provided or needed
-        actual_arg_type = "void"  # Default type
-        if arg_expr_str.strip():  # Only evaluate if arg_expr_str is not empty
+        # --- Look up library and operation ---
+        if lib_name not in self.stdlib_handler.libraries:
+            raise ValueError(f"Unknown standard library namespace: '{lib_name}'")
+        library = self.stdlib_handler.libraries[lib_name]
+        if op_name not in library:
+            raise ValueError(f"Unknown function '{op_name}' in library '{lib_name}'")
+        stdlib_method = library[op_name]
+
+        # --- Evaluate the base expression ---
+        base_value = None
+        base_type = "void"
+        # Handle '_' explicitly for the base expression
+        if base_expr_str == "_":
+            if self.debug:
+                print("    Base expression is '_', treating as void")
+            # Keep base_value = None, base_type = "void"
+        else:
             try:
-                # Evaluate argument expression, expecting 'any' type initially
-                arg_value = self.evaluate(arg_expr_str, None)
-                actual_arg_type = _get_python_type_name(arg_value)
+                base_value = self.evaluate(base_expr_str, None)  # Evaluate base expr
+                base_type = _get_python_type_name(base_value)
             except Exception as e:
                 raise ValueError(
-                    f"Error evaluating argument expression '{arg_expr_str}' for stdlib function '{func_name}': {e}") from e
+                    f"Error evaluating base expression '{base_expr_str}' for stdlib function '{lib_name}.{op_name}': {e}"
+                ) from e
 
         if self.debug:
             print(
-                f"    Arg '{arg_expr_str}' evaluated to: {repr(arg_value)} (type: {actual_arg_type})")
+                f"    Base '{base_expr_str}' evaluated to: {repr(base_value)} (type: {base_type})"
+            )
 
-        # Get the standard library method implementation
-        stdlib_method = self.stdlib_handler.functions[func_name]
+        # --- Evaluate Arguments ---
+        evaluated_args = []
+        if args_part == "_":
+            if self.debug:
+                print("    No arguments provided ('_').")
+            # evaluated_args remains empty []
+        elif args_part.startswith("(") and args_part.endswith(")"):
+            args_content_str = args_part[1:-1].strip()
+            if not args_content_str:
+                if self.debug:
+                    print("    Empty argument list '()'.")
+                # evaluated_args remains empty []
+            else:
+                try:
+                    # Use the robust parser to split argument expressions
+                    arg_expressions = self._parse_argument_list(args_content_str)
+                    if self.debug:
+                        print(f"    Parsed argument expressions: {arg_expressions}")
 
-        # Call the specific stdlib method, now passing the base value/type as well
+                    for i, arg_expr in enumerate(arg_expressions):
+                        try:
+                            arg_value = self.evaluate(
+                                arg_expr, None
+                            )  # Evaluate each argument expression
+                            evaluated_args.append(arg_value)
+                            if self.debug:
+                                print(
+                                    f"      Arg {i+1} '{arg_expr}' evaluated to: {repr(arg_value)} (type: {_get_python_type_name(arg_value)})"
+                                )
+                        except Exception as e:
+                            raise ValueError(
+                                f"Error evaluating argument {i+1} ('{arg_expr}') for stdlib function '{lib_name}.{op_name}': {e}"
+                            ) from e
+                except Exception as e:  # Catch errors during argument parsing itself
+                    raise ValueError(
+                        f"Error parsing argument list '{args_part}' for stdlib function '{lib_name}.{op_name}': {e}"
+                    ) from e
+        else:
+            # Should not happen with the regex, but safety check
+            raise ValueError(
+                f"Invalid arguments format: '{args_part}'. Expected '(...)' or '_'."
+            )
+
+        # --- Call the specific stdlib method ---
+        # Signature: method(base_value, base_type, evaluated_args_list)
         try:
-            # Signature: method(base_value, base_type, arg_value, arg_type)
-            result = stdlib_method(base_value, base_type,
-                                   arg_value, actual_arg_type)
+            result = stdlib_method(base_value, base_type, evaluated_args)
         except Exception as e:
             # Catch errors during the execution of the stdlib function itself
             raise ValueError(
-                f"Error during execution of stdlib function '{func_name}': {e}") from e
+                f"Error during execution of stdlib function '{lib_name}.{op_name}': {e}"
+            ) from e
 
         result_type = _get_python_type_name(result)
         if self.debug:
             print(
-                f"    Stdlib function '{func_name}' returned: {repr(result)} (type: {result_type})")
+                f"    Stdlib function '{lib_name}.{op_name}' returned: {repr(result)} (type: {result_type})"
+            )
 
-        # Convert the result to the type expected by the outer context calling evaluate()
+        # Convert the result to the type expected by the outer context
         return self._convert_type(result, result_type, expected_type)
+
     # --- End REVISED ---
 
     def _evaluate_input(self, match, expected_type):
@@ -497,7 +688,7 @@ class ExpressionEvaluator:
                     "float": float,
                     "bool": lambda x: x.lower() == "true",
                     "string": str,
-                    "list": lambda x: [e.strip() for e in x.split(',')],
+                    "list": lambda x: [e.strip() for e in x.split(",")],
                 }
                 if expected_type in temp_conversions:
                     return temp_conversions[expected_type](user_input)
@@ -513,7 +704,7 @@ class ExpressionEvaluator:
 
     def _evaluate_literal(self, expression, expected_type):
         """Evaluates literal values (string, bool, int, float) with automatic type conversion,
-           using stricter matching for strings."""
+        using stricter matching for strings."""
 
         # --- String Literal Check (Stricter) ---
         # Use regex to ensure ONLY a quoted string (+ optional surrounding whitespace).
@@ -526,17 +717,18 @@ class ExpressionEvaluator:
                 # correctly handling standard Python escape sequences (\n, \", \t, etc.).
                 # We reconstruct the quoted string for literal_eval.
                 evaluated_value = ast.literal_eval(
-                    '"' + raw_content.replace('"', '\\"') + '"')
+                    '"' + raw_content.replace('"', '\\"') + '"'
+                )
             except Exception as e:
                 # Fallback if literal_eval fails (highly unlikely for valid string literals)
                 if self.debug:
                     print(
-                        f"  Warning: ast.literal_eval failed for string content '{raw_content}': {e}. Using raw content.")
+                        f"  Warning: ast.literal_eval failed for string content '{raw_content}': {e}. Using raw content."
+                    )
                 evaluated_value = raw_content  # Use the raw content as a fallback
 
             if self.debug:
-                print(
-                    f"  Literal evaluated as string: {repr(evaluated_value)}")
+                print(f"  Literal evaluated as string: {repr(evaluated_value)}")
             return self._convert_type(evaluated_value, "string", expected_type)
 
         # --- Boolean Literals ---
@@ -577,8 +769,7 @@ class ExpressionEvaluator:
         if key in self.type_conversions:
             try:
                 if self.debug:
-                    print(
-                        f"  Converting '{value}' ({source_type}) -> {target_type}")
+                    print(f"  Converting '{value}' ({source_type}) -> {target_type}")
                 converted = self.type_conversions[key](value)
                 if self.debug:
                     print(f"    -> Result: '{converted}' ({target_type})")
@@ -613,7 +804,8 @@ class ExpressionEvaluator:
             print(f"  String concat executing on: '{expression}'")
             # Show the specific variables context this evaluator instance is using
             print(
-                f"  String concat evaluator vars ID: {id(self.variables)}, Content: {self.variables}")
+                f"  String concat evaluator vars ID: {id(self.variables)}, Content: {self.variables}"
+            )
         # --- Debug End ---
 
         result = ""
@@ -636,14 +828,14 @@ class ExpressionEvaluator:
                     in_quotes = None  # Exit quote block
 
             # Track nesting level (only outside quotes)
-            elif char in ('[', '(') and in_quotes is None:
+            elif char in ("[", "(") and in_quotes is None:
                 nesting_depth += 1
-            elif char in (']', ')') and in_quotes is None:
+            elif char in ("]", ")") and in_quotes is None:
                 if nesting_depth > 0:  # Avoid going negative on mismatched brackets
                     nesting_depth -= 1
 
             # Split on '+' only if outside quotes and at the top level (nesting_depth == 0)
-            elif char == '+' and in_quotes is None and nesting_depth == 0:
+            elif char == "+" and in_quotes is None and nesting_depth == 0:
                 parts.append(expression[start:idx].strip())
                 start = idx + 1  # Start next part after the '+'
 
@@ -685,7 +877,8 @@ class ExpressionEvaluator:
                 # --- Debug Part Result ---
                 if self.debug:
                     print(
-                        f"      Part '{part}' evaluated to: {repr(value)} (type: {_get_python_type_name(value)})")
+                        f"      Part '{part}' evaluated to: {repr(value)} (type: {_get_python_type_name(value)})"
+                    )
                 # --- Debug End ---
 
                 # Append the string representation of the evaluated value
@@ -694,11 +887,13 @@ class ExpressionEvaluator:
             except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
                 # Improve error context if a part fails to evaluate
                 raise ValueError(
-                    f"Invalid part ('{part}') within string concatenation expression '{expression}': {e}") from e
+                    f"Invalid part ('{part}') within string concatenation expression '{expression}': {e}"
+                ) from e
             except Exception as e:
                 # Catch unexpected errors during part evaluation
                 raise RuntimeError(
-                    f"Unexpected error evaluating part ('{part}') in string concatenation '{expression}': {type(e).__name__}: {e}") from e
+                    f"Unexpected error evaluating part ('{part}') in string concatenation '{expression}': {type(e).__name__}: {e}"
+                ) from e
         # --- End of Part Evaluation Loop ---
 
         # --- Debug Final Result ---
@@ -751,29 +946,33 @@ class ExpressionEvaluator:
                     target_list.remove(value)
                 except ValueError:
                     print(
-                        f"Warning: Value '{value}' not found in list '{list_name}' for removal.")
+                        f"Warning: Value '{value}' not found in list '{list_name}' for removal."
+                    )
                     # Don't raise error if not found? Or should we? Let's warn for now.
                     pass
             elif operation == "n":  # Insert
                 if extra_value is None:
                     raise ValueError(
-                        "Insert operation [n] requires a position argument.")
+                        "Insert operation [n] requires a position argument."
+                    )
                 try:
                     # Note: Using 1-based indexing from user perspective
                     position = self._convert_type(
-                        extra_value, _get_python_type_name(extra_value), "int")
+                        extra_value, _get_python_type_name(extra_value), "int"
+                    )
                     if not (1 <= position <= len(target_list) + 1):
                         raise ValueError(
-                            f"Insert position {position} out of range for list '{list_name}' (size {len(target_list)}). Use 1 to {len(target_list)+1}.")
+                            f"Insert position {position} out of range for list '{list_name}' (size {len(target_list)}). Use 1 to {len(target_list)+1}."
+                        )
                     # Convert to 0-based for Python
                     target_list.insert(position - 1, value)
                 except (ValueError, TypeError) as e:
-                    raise ValueError(
-                        f"Invalid position for insert operation: {e}")
+                    raise ValueError(f"Invalid position for insert operation: {e}")
             elif operation == "p" or operation == "P":  # Replace/Replace All
                 if extra_value is None:
                     raise ValueError(
-                        "Replace operation [p/P] requires a new value argument.")
+                        "Replace operation [p/P] requires a new value argument."
+                    )
                 new_value = extra_value  # Already evaluated
                 found = False
                 for i in range(len(target_list)):
@@ -786,7 +985,8 @@ class ExpressionEvaluator:
                             break
                 if not found:
                     print(
-                        f"Warning: Value '{value}' not found in list '{list_name}' for replacement.")
+                        f"Warning: Value '{value}' not found in list '{list_name}' for replacement."
+                    )
 
             # Return the modified list (though it was modified in-place)
             return target_list
@@ -795,8 +995,7 @@ class ExpressionEvaluator:
             target_string = current_collection
             # Convert value and extra_value to string for string operations
             value_str = str(value)
-            extra_value_str = str(
-                extra_value) if extra_value is not None else None
+            extra_value_str = str(extra_value) if extra_value is not None else None
 
             if operation == "a":  # Append
                 target_string += value_str
@@ -805,32 +1004,37 @@ class ExpressionEvaluator:
             elif operation == "n":  # Insert
                 if extra_value is None:
                     raise ValueError(
-                        "Insert operation [n] requires a position argument.")
+                        "Insert operation [n] requires a position argument."
+                    )
                 try:
                     # Note: Using 1-based indexing from user perspective
                     position = self._convert_type(
-                        extra_value, _get_python_type_name(extra_value), "int")
+                        extra_value, _get_python_type_name(extra_value), "int"
+                    )
                     if not (1 <= position <= len(target_string) + 1):
                         raise ValueError(
-                            f"Insert position {position} out of range for string '{list_name}' (length {len(target_string)}). Use 1 to {len(target_string)+1}.")
+                            f"Insert position {position} out of range for string '{list_name}' (length {len(target_string)}). Use 1 to {len(target_string)+1}."
+                        )
                     # 0-based slice
-                    target_string = target_string[:position - 1] + \
-                        value_str + target_string[position - 1:]
+                    target_string = (
+                        target_string[: position - 1]
+                        + value_str
+                        + target_string[position - 1 :]
+                    )
                 except (ValueError, TypeError) as e:
-                    raise ValueError(
-                        f"Invalid position for insert operation: {e}")
+                    raise ValueError(f"Invalid position for insert operation: {e}")
             elif operation == "p":  # Replace first
                 if extra_value_str is None:
                     raise ValueError(
-                        "Replace operation [p] requires a new value argument.")
-                target_string = target_string.replace(
-                    value_str, extra_value_str, 1)
+                        "Replace operation [p] requires a new value argument."
+                    )
+                target_string = target_string.replace(value_str, extra_value_str, 1)
             elif operation == "P":  # Replace all
                 if extra_value_str is None:
                     raise ValueError(
-                        "Replace operation [P] requires a new value argument.")
-                target_string = target_string.replace(
-                    value_str, extra_value_str)
+                        "Replace operation [P] requires a new value argument."
+                    )
+                target_string = target_string.replace(value_str, extra_value_str)
 
             # Return the new string (strings are immutable)
             return target_string
@@ -856,7 +1060,8 @@ class ExpressionEvaluator:
         collection = self.variables[list_name][0]
         if not collection:
             raise ValueError(
-                f"Cannot get random element from empty list/string '{list_name}'")
+                f"Cannot get random element from empty list/string '{list_name}'"
+            )
         choice = random.choice(collection)
         if self.debug:
             print(f"  List/String random choice: {choice}")
@@ -889,7 +1094,8 @@ class ExpressionEvaluator:
         except IndexError:
             # Return None for out-of-bounds access, as per original code's warning
             print(
-                f"Warning: Index {index_val} out of range for {self.variables[list_name][1]} '{list_name}' (size {len(collection)})")
+                f"Warning: Index {index_val} out of range for {self.variables[list_name][1]} '{list_name}' (size {len(collection)})"
+            )
             return None
 
     def _evaluate_list_finding(self, match):
@@ -904,7 +1110,8 @@ class ExpressionEvaluator:
 
         if self.debug:
             print(
-                f"  Finding value '{value_to_find}' in {self.variables[list_name][1]} '{list_name}'")
+                f"  Finding value '{value_to_find}' in {self.variables[list_name][1]} '{list_name}'"
+            )
 
         collection = self.variables[list_name][0]
 
@@ -939,18 +1146,19 @@ class ExpressionEvaluator:
         """Evaluates explicit type conversion expressions like 'expr :> type'."""
         expr_to_convert, target_type = match.groups()
 
-        if target_type not in Interpreter.supported_types:  # Access supported types statically
-            raise ValueError(
-                f"Unsupported target type for conversion: {target_type}")
+        if (
+            target_type not in Interpreter.supported_types
+        ):  # Access supported types statically
+            raise ValueError(f"Unsupported target type for conversion: {target_type}")
 
         # First, evaluate the inner expression without a target type
         source_value = self.evaluate(expr_to_convert, None)
         source_type = _get_python_type_name(
-            source_value)  # Get type from evaluated value
+            source_value
+        )  # Get type from evaluated value
 
         # Now, perform the explicit conversion
-        converted_value = self._convert_type(
-            source_value, source_type, target_type)
+        converted_value = self._convert_type(source_value, source_type, target_type)
 
         # Finally, convert to the overall expected type if one was provided
         return self._convert_type(converted_value, target_type, expected_type)
@@ -969,7 +1177,8 @@ class ExpressionEvaluator:
 
             # Use literal evaluation for numbers
             literal_val = self._evaluate_literal(
-                token, None)  # Try to parse as literal first
+                token, None
+            )  # Try to parse as literal first
             if isinstance(literal_val, (int, float)):
                 stack.append(literal_val)
                 if self.debug:
@@ -979,8 +1188,7 @@ class ExpressionEvaluator:
                 if var_type in ("int", "float"):
                     stack.append(var_value)
                     if self.debug:
-                        print(
-                            f"    RPN Push (variable '{token}'): {var_value}")
+                        print(f"    RPN Push (variable '{token}'): {var_value}")
                 else:
                     raise TypeError(  # Use TypeError for RPN type issues
                         f"Variable '{token}' is not numeric (type: {var_type}) in RPN expression"
@@ -1004,7 +1212,7 @@ class ExpressionEvaluator:
                 elif token == "*":
                     result = operand1 * operand2
                 elif token == "**":
-                    result = operand1 ** operand2
+                    result = operand1**operand2
                 elif token == "/":
                     if operand2 == 0:
                         raise ZeroDivisionError("RPN Division by zero")
@@ -1056,7 +1264,8 @@ class ExpressionEvaluator:
 
         if self.debug:
             print(
-                f"  Boolean Infix: '{left_val}' ({left_type}) {operator} '{right_val}' ({right_type})")
+                f"  Boolean Infix: '{left_val}' ({left_type}) {operator} '{right_val}' ({right_type})"
+            )
 
         # Logical operators (AND, OR) - evaluate operands as boolean
         if operator == "@$@":  # Logical AND
@@ -1066,9 +1275,12 @@ class ExpressionEvaluator:
 
         # Comparison operators
         # Try numeric comparison first if both look numeric or are numeric
-        can_compare_numeric = (left_type in ("int", "float") or _is_numeric_string(left_expression.strip())) and \
-                              (right_type in ("int", "float")
-                               or _is_numeric_string(right_expression.strip()))
+        can_compare_numeric = (
+            left_type in ("int", "float") or _is_numeric_string(left_expression.strip())
+        ) and (
+            right_type in ("int", "float")
+            or _is_numeric_string(right_expression.strip())
+        )
 
         if can_compare_numeric:
             try:
@@ -1143,13 +1355,13 @@ class ExpressionEvaluator:
             elif char == in_quotes:
                 in_quotes = None
                 current_element += char
-            elif char == '[' and not in_quotes:
+            elif char == "[" and not in_quotes:
                 bracket_depth += 1
                 current_element += char
-            elif char == ']' and not in_quotes:
+            elif char == "]" and not in_quotes:
                 bracket_depth -= 1
                 current_element += char
-            elif char == ',' and bracket_depth == 0 and not in_quotes:
+            elif char == "," and bracket_depth == 0 and not in_quotes:
                 elements.append(current_element.strip())
                 current_element = ""
             else:
@@ -1167,8 +1379,7 @@ class ExpressionEvaluator:
                 value = self.evaluate(elem_expr, None)  # Evaluate element
                 result_list.append(value)
             except ValueError as e:
-                raise ValueError(
-                    f"Invalid list element expression: '{elem_expr}'. {e}")
+                raise ValueError(f"Invalid list element expression: '{elem_expr}'. {e}")
 
         if self.debug:
             print(f"  Evaluated list literal result: {result_list}")
@@ -1229,6 +1440,7 @@ def _raise(exception):
     """Helper to raise exceptions inside lambdas."""
     raise exception
 
+
 # ------------------------------------------------------------
 
 # Part 4: `Interpreter` Class (with fixes)
@@ -1236,15 +1448,23 @@ def _raise(exception):
 
 class Interpreter:
     # Class attribute for supported types
-    supported_types = ["int", "float", "string",
-                       "list", "bool", "any", "void"]  # Added 'any'
+    supported_types = [
+        "int",
+        "float",
+        "string",
+        "list",
+        "bool",
+        "any",
+        "void",
+    ]  # Added 'any'
 
     def __init__(self, debug=False, debug_show=False):
         self.variables: Dict[str, tuple[Any, str]] = {}  # Global variables
         self.functions: Dict[str, Function] = {}  # Store defined functions
         self.labels: Dict[str, int] = {}  # Label name -> line number (1-based)
         self.expression_evaluator = ExpressionEvaluator(
-            self.variables, self.functions, interpreter=self, debug=debug)  # Pass functions dict
+            self.variables, self.functions, interpreter=self, debug=debug
+        )  # Pass functions dict
         self.debug = debug
         self.debug_show = debug_show
         # No global return_value needed if scope is handled correctly
@@ -1314,16 +1534,26 @@ class Interpreter:
                 # Pre-scan and execute the single line
                 # REPL doesn't easily support multi-line functions or jumps
                 # We can try executing directly, but complex statements might fail
-                if LABEL_KEYWORD in line or "::(" in line or GOTO_KEYWORD in line or IF_KEYWORD in line or FOR_KEYWORD in line or WHILE_KEYWORD in line:
+                if (
+                    LABEL_KEYWORD in line
+                    or "::(" in line
+                    or GOTO_KEYWORD in line
+                    or IF_KEYWORD in line
+                    or FOR_KEYWORD in line
+                    or WHILE_KEYWORD in line
+                ):
                     print(
-                        "Warning: Multi-line constructs (functions, labels, loops, complex ifs) have limited support in REPL.")
+                        "Warning: Multi-line constructs (functions, labels, loops, complex ifs) have limited support in REPL."
+                    )
                 try:
                     # Update evaluator's variable view
                     self.expression_evaluator.variables = self.variables
                     self.expression_evaluator.functions = self.functions
                     # Execute in global scope
                     result = self.execute_line(line, 0, self.variables)
-                    if result is not None:  # e.g., SHOW command prints, function call returns
+                    if (
+                        result is not None
+                    ):  # e.g., SHOW command prints, function call returns
                         # Don't print result automatically unless it's an expression?
                         # Let SHOW handle printing.
                         pass
@@ -1404,35 +1634,41 @@ Notes:
                     label_name = match.group(1)
                     if label_name in self.labels:
                         raise ValueError(
-                            f"Duplicate label '{label_name}' defined on line {line_number + 1}")
+                            f"Duplicate label '{label_name}' defined on line {line_number + 1}"
+                        )
                     # Store 1-based line number for GOTO convenience
                     self.labels[label_name] = line_number + 1
                     if self.debug:
-                        print(
-                            f"Found label '{label_name}' at line {line_number + 1}")
+                        print(f"Found label '{label_name}' at line {line_number + 1}")
                 else:
                     # Raise error during pre-scan for invalid label syntax
                     raise ValueError(
-                        f"Invalid label definition on line {line_number + 1}: {line}")
+                        f"Invalid label definition on line {line_number + 1}: {line}"
+                    )
                 line_number += 1
             # Find Function Definitions
             elif "::(" in line:  # Potential function start
                 try:
                     lines_in_func = self.handle_function_declaration(
-                        lines, line_number, store_function=True)
+                        lines, line_number, store_function=True
+                    )
                     # Skip the entire function body during pre-scan
                     line_number += lines_in_func + 1  # +1 to move past the return line
                 except ValueError as e:
                     # Propagate errors found during function declaration parsing
                     raise ValueError(
-                        f"Error in function definition near line {line_number + 1}: {e}")
+                        f"Error in function definition near line {line_number + 1}: {e}"
+                    )
             else:
                 line_number += 1
         if self.debug:
             print(
-                f"Pre-scan complete. Labels: {self.labels}, Functions: {list(self.functions.keys())}")
+                f"Pre-scan complete. Labels: {self.labels}, Functions: {list(self.functions.keys())}"
+            )
 
-    def execute_block(self, lines: List[str], local_vars: Optional[Dict[str, tuple[Any, str]]] = None) -> Any:
+    def execute_block(
+        self, lines: List[str], local_vars: Optional[Dict[str, tuple[Any, str]]] = None
+    ) -> Any:
         """
         Executes a block of lines (main script or function body).
         Manages execution flow (loops, ifs, goto).
@@ -1440,8 +1676,7 @@ Notes:
         """
         current_vars = local_vars if local_vars is not None else self.variables
         # Create a new evaluator instance for this block, sharing functions but using current_vars
-        evaluator = ExpressionEvaluator(
-            current_vars, self.functions, self, self.debug)
+        evaluator = ExpressionEvaluator(current_vars, self.functions, self, self.debug)
 
         line_ptr = 0  # 0-based index for line execution
         max_lines = len(lines)
@@ -1463,7 +1698,8 @@ Notes:
                 # Let's rely on handle_function_declaration to calculate skip count
                 try:
                     lines_to_skip = self.handle_function_declaration(
-                        lines, line_ptr, store_function=False)
+                        lines, line_ptr, store_function=False
+                    )
                     line_ptr += lines_to_skip + 1  # Skip body and return line
                     continue
                 except ValueError:
@@ -1477,7 +1713,7 @@ Notes:
                     print(f"  Local Vars: {current_vars}")
 
             try:
-                if line.startswith('?'):  # Quick check before regex
+                if line.startswith("?"):  # Quick check before regex
                     seed_match = re.match(r"\?\s+(.+)", line)
                     if seed_match:
                         seed_value_str = seed_match.group(1).strip()
@@ -1487,7 +1723,8 @@ Notes:
                             random.seed(seed_value_for_func)
                             if self.debug:
                                 print(
-                                    f"  Seeded random generator with int: {seed_value_for_func}")
+                                    f"  Seeded random generator with int: {seed_value_for_func}"
+                                )
                         except ValueError:
                             # If int conversion fails, use the string itself.
                             # random.seed() accepts various hashable types.
@@ -1495,14 +1732,16 @@ Notes:
                             random.seed(seed_value_for_func)
                             if self.debug:
                                 print(
-                                    f"  Seeded random generator with string: '{seed_value_for_func}'")
+                                    f"  Seeded random generator with string: '{seed_value_for_func}'"
+                                )
 
                         line_ptr += 1  # Move to next line
                         continue  # Finished processing the seed command for this line
                     else:
                         # Handle cases like just "?" or "?seed" (no space/value)
                         raise ValueError(
-                            "Invalid seed syntax. Expected '? <seed_value>'")
+                            "Invalid seed syntax. Expected '? <seed_value>'"
+                        )
                 # --- Control Flow ---
                 elif line.startswith(GOTO_KEYWORD):
                     # Condition is optional
@@ -1518,20 +1757,22 @@ Notes:
                         target_line_num = self.labels[target]
                     else:
                         raise ValueError(
-                            f"GOTO target '{target}' is not a valid line number or defined label")
+                            f"GOTO target '{target}' is not a valid line number or defined label"
+                        )
 
                     if not (1 <= target_line_num <= max_lines):
                         raise ValueError(
-                            f"GOTO target line number {target_line_num} is out of bounds (1-{max_lines})")
+                            f"GOTO target line number {target_line_num} is out of bounds (1-{max_lines})"
+                        )
 
                     should_jump = True  # Default to jump if no condition
                     if condition and condition.strip():
-                        condition_value = evaluator.evaluate(
-                            condition.strip(), "bool")
+                        condition_value = evaluator.evaluate(condition.strip(), "bool")
                         should_jump = bool(condition_value)
                         if self.debug:
                             print(
-                                f"  GOTO condition '{condition.strip()}' evaluated to {should_jump}")
+                                f"  GOTO condition '{condition.strip()}' evaluated to {should_jump}"
+                            )
 
                     if should_jump:
                         if self.debug:
@@ -1553,59 +1794,68 @@ Notes:
                     if self.debug:
                         print(f"  IF condition '{condition}' -> {cond_val}")
                     conditional_stack.append(
-                        {'type': 'if', 'executed': cond_val, 'line': line_ptr})
+                        {"type": "if", "executed": cond_val, "line": line_ptr}
+                    )
                     if not cond_val:
                         # Skip to the next ELIF, ELSE, or END for this IF level
                         line_ptr = self._find_matching_conditional_end(
-                            lines, line_ptr, ['elif', 'else', 'end'])
+                            lines, line_ptr, ["elif", "else", "end"]
+                        )
                         continue  # Continue execution from the found line
 
                 elif line.startswith(ELIF_KEYWORD):
-                    if not conditional_stack or conditional_stack[-1]['type'] not in ('if', 'elif'):
+                    if not conditional_stack or conditional_stack[-1]["type"] not in (
+                        "if",
+                        "elif",
+                    ):
                         raise ValueError("ELIF without matching IF/ELIF")
                     match = re.match(r"ELIF\s+(.+?)\s+DO", line)
                     if not match:
                         raise ValueError("Invalid ELIF syntax")
 
                     # Only evaluate if no previous block in this chain executed
-                    if conditional_stack[-1]['executed']:
+                    if conditional_stack[-1]["executed"]:
                         # Skip to the END of the current IF structure
                         line_ptr = self._find_matching_conditional_end(
-                            lines, conditional_stack[-1]['line'], ['end'])
+                            lines, conditional_stack[-1]["line"], ["end"]
+                        )
                         continue
                     else:
                         condition = match.group(1)
                         cond_val = evaluator.evaluate(condition, "bool")
                         if self.debug:
-                            print(
-                                f"  ELIF condition '{condition}' -> {cond_val}")
-                        conditional_stack[-1]['type'] = 'elif'  # Update state
+                            print(f"  ELIF condition '{condition}' -> {cond_val}")
+                        conditional_stack[-1]["type"] = "elif"  # Update state
                         # Mark if this one executed
-                        conditional_stack[-1]['executed'] = cond_val
+                        conditional_stack[-1]["executed"] = cond_val
                         if not cond_val:
                             # Skip to the next ELIF, ELSE, or END
                             line_ptr = self._find_matching_conditional_end(
-                                lines, line_ptr, ['elif', 'else', 'end'])
+                                lines, line_ptr, ["elif", "else", "end"]
+                            )
                             continue
 
                 elif line.startswith(ELSE_KEYWORD):
-                    if not conditional_stack or conditional_stack[-1]['type'] not in ('if', 'elif'):
+                    if not conditional_stack or conditional_stack[-1]["type"] not in (
+                        "if",
+                        "elif",
+                    ):
                         raise ValueError("ELSE without matching IF/ELIF")
                     # Optional DO? Let's require it for consistency
                     match = re.match(r"ELSE\s+DO", line)
                     if not match:
-                        raise ValueError(
-                            "Invalid ELSE syntax, expected 'ELSE DO'")
+                        raise ValueError("Invalid ELSE syntax, expected 'ELSE DO'")
 
-                    if conditional_stack[-1]['executed']:
+                    if conditional_stack[-1]["executed"]:
                         # Previous block executed, skip to END
                         line_ptr = self._find_matching_conditional_end(
-                            lines, conditional_stack[-1]['line'], ['end'])
+                            lines, conditional_stack[-1]["line"], ["end"]
+                        )
                         continue
                     else:
                         # Execute this ELSE block
-                        conditional_stack[-1]['type'] = 'else'  # Update state
-                        conditional_stack[-1]['executed'] = True
+                        conditional_stack[-1]["type"] = "else"  # Update state
+                        conditional_stack[-1]["executed"] = True
 
                 elif line.startswith(END_KEYWORD):
                     # Optional semicolon? Let's require it.
@@ -1628,20 +1878,26 @@ Notes:
                     end_val = evaluator.evaluate(end_expr, "int")
 
                     # Check if this is the first entry into the loop
-                    if not loop_stack or loop_stack[-1][0] != 'for' or loop_stack[-1][1] != line_ptr:
+                    if (
+                        not loop_stack
+                        or loop_stack[-1][0] != "for"
+                        or loop_stack[-1][1] != line_ptr
+                    ):
                         # Initialize loop variable and push state
                         current_vars[var_name] = (start_val, "int")
-                        loop_stack.append(('for', line_ptr, var_name, end_val))
+                        loop_stack.append(("for", line_ptr, var_name, end_val))
                         if self.debug:
                             print(
-                                f"  FOR loop start: {var_name}={start_val}, end={end_val}")
+                                f"  FOR loop start: {var_name}={start_val}, end={end_val}"
+                            )
                     else:
                         # Increment existing loop variable
                         current_val = current_vars[var_name][0]
                         current_vars[var_name] = (current_val + 1, "int")
                         if self.debug:
                             print(
-                                f"  FOR loop increment: {var_name}={current_vars[var_name][0]}")
+                                f"  FOR loop increment: {var_name}={current_vars[var_name][0]}"
+                            )
 
                     # Check loop condition
                     if current_vars[var_name][0] > end_val:  # Loop finished
@@ -1649,8 +1905,7 @@ Notes:
                             print(f"  FOR loop finished")
                         loop_stack.pop()
                         # Skip to end of loop body
-                        line_ptr = self._find_matching_loop_end(
-                            lines, line_ptr)
+                        line_ptr = self._find_matching_loop_end(lines, line_ptr)
                         # line_ptr will be incremented at the end, so skip LOOP_END line itself
                         # continue
 
@@ -1661,8 +1916,12 @@ Notes:
                     condition = match.group(1)
 
                     # Check if first entry
-                    if not loop_stack or loop_stack[-1][0] != 'while' or loop_stack[-1][1] != line_ptr:
-                        loop_stack.append(('while', line_ptr, condition))
+                    if (
+                        not loop_stack
+                        or loop_stack[-1][0] != "while"
+                        or loop_stack[-1][1] != line_ptr
+                    ):
+                        loop_stack.append(("while", line_ptr, condition))
 
                     # Evaluate condition
                     cond_val = evaluator.evaluate(condition, "bool")
@@ -1672,50 +1931,54 @@ Notes:
                     if not cond_val:  # Loop finished or condition initially false
                         if self.debug:
                             print(f"  WHILE loop finished/skipped")
-                        if loop_stack and loop_stack[-1][0] == 'while' and loop_stack[-1][1] == line_ptr:
+                        if (
+                            loop_stack
+                            and loop_stack[-1][0] == "while"
+                            and loop_stack[-1][1] == line_ptr
+                        ):
                             loop_stack.pop()  # Pop only if it was the current loop entry
                         # Skip to end of loop body
-                        line_ptr = self._find_matching_loop_end(
-                            lines, line_ptr)
+                        line_ptr = self._find_matching_loop_end(lines, line_ptr)
                         # continue
 
                 elif line.startswith(LOOP_END_KEYWORD):
                     # Optional semicolon? Require it.
                     match = re.match(r"LOOP_END\s*", line)
                     if not match:
-                        raise ValueError(
-                            "Invalid LOOP_END syntax, expected 'LOOP_END'")
+                        raise ValueError("Invalid LOOP_END syntax, expected 'LOOP_END'")
                     if not loop_stack:
                         raise ValueError(
-                            f"{LOOP_END_KEYWORD} without matching FOR or WHILE")
+                            f"{LOOP_END_KEYWORD} without matching FOR or WHILE"
+                        )
 
                     loop_type, start_line_ptr, *_ = loop_stack[-1]
 
-                    if loop_type == 'for':
+                    if loop_type == "for":
                         # Jump back to the FOR line to increment and re-check
                         line_ptr = start_line_ptr
                         continue  # Re-execute the FOR line
-                    elif loop_type == 'while':
+                    elif loop_type == "while":
                         # Jump back to the WHILE line to re-evaluate condition
                         line_ptr = start_line_ptr
                         continue  # Re-execute the WHILE line
                     else:  # Should not happen
-                        raise ValueError(
-                            "Internal error: Unknown loop type on stack")
+                        raise ValueError("Internal error: Unknown loop type on stack")
 
                 # --- Return Statement ---
                 elif line.startswith(RETURN_KEYWORD):
                     if local_vars is None:  # In global scope
                         raise ValueError(
-                            "RETURN statement can only be used inside a function")
-                    expr = line[len(RETURN_KEYWORD):].strip()
+                            "RETURN statement can only be used inside a function"
+                        )
+                    expr = line[len(RETURN_KEYWORD) :].strip()
                     return_value = None
                     if expr:
                         # Need function's expected return type here
                         # This requires passing function context down, or looking it up.
                         # For now, evaluate without specific type.
                         return_value = evaluator.evaluate(
-                            expr, None)  # Evaluate in local scope
+                            expr, None
+                        )  # Evaluate in local scope
                     if self.debug:
                         print(f"  Function returning: {repr(return_value)}")
                     return return_value  # Exit the function execution
@@ -1739,12 +2002,12 @@ Notes:
 
             except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
                 # Catch evaluation and runtime errors
-                raise ValueError(
-                    f"Error on line {current_line_num}: {e}") from e
+                raise ValueError(f"Error on line {current_line_num}: {e}") from e
             except Exception as e:
                 # Catch unexpected errors
                 raise RuntimeError(
-                    f"Unexpected error on line {current_line_num}: {type(e).__name__}: {e}") from e
+                    f"Unexpected error on line {current_line_num}: {type(e).__name__}: {e}"
+                ) from e
 
             # --- Move to next line ---
             line_ptr += 1
@@ -1752,10 +2015,12 @@ Notes:
         # End of block reached
         if loop_stack:
             raise ValueError(
-                f"Reached end of block with unclosed loop(s) starting on line(s): {[l[1]+1 for l in loop_stack]}")
+                f"Reached end of block with unclosed loop(s) starting on line(s): {[l[1]+1 for l in loop_stack]}"
+            )
         if conditional_stack:
             raise ValueError(
-                f"Reached end of block with unclosed IF/ELIF/ELSE structure(s) starting on line(s): {[c['line']+1 for c in conditional_stack]}")
+                f"Reached end of block with unclosed IF/ELIF/ELSE structure(s) starting on line(s): {[c['line']+1 for c in conditional_stack]}"
+            )
 
         # If this is a function block, return None by default if no RETURN was hit
         if local_vars is not None:
@@ -1779,7 +2044,8 @@ Notes:
                     nesting_level -= 1
             ptr += 1
         raise ValueError(
-            f"Missing LOOP_END for loop starting on line {start_line_ptr + 1}")
+            f"Missing LOOP_END for loop starting on line {start_line_ptr + 1}"
+        )
 
     def _find_matching_conditional_end(self, lines, start_line_ptr, targets):
         """Finds the next ELIF, ELSE, or END at the same nesting level."""
@@ -1794,22 +2060,25 @@ Notes:
                 if match:
                     if nesting_level == 0:
                         # Found the END for the starting IF
-                        return ptr if 'end' in targets else ptr  # Adjust based on target needs
+                        return (
+                            ptr if "end" in targets else ptr
+                        )  # Adjust based on target needs
                     nesting_level -= 1
             elif nesting_level == 0:
                 # Check for targets only at the same level
                 if any(line.startswith(k.upper()) for k in targets):
                     # Check syntax more strictly?
-                    if line.startswith(ELIF_KEYWORD) and 'elif' in targets:
+                    if line.startswith(ELIF_KEYWORD) and "elif" in targets:
                         return ptr
-                    if line.startswith(ELSE_KEYWORD) and 'else' in targets:
+                    if line.startswith(ELSE_KEYWORD) and "else" in targets:
                         return ptr
                     # Add END check here too?
             ptr += 1
         # If searching for END and not found
-        if 'end' in targets:
+        if "end" in targets:
             raise ValueError(
-                f"Missing END for IF block starting on line {start_line_ptr + 1}")
+                f"Missing END for IF block starting on line {start_line_ptr + 1}"
+            )
         # If searching for ELIF/ELSE and not found, return line count (effectively end of block)
         return len(lines)
 
@@ -1822,15 +2091,14 @@ Notes:
         NOTE: This is a simplified version and won't handle control flow correctly.
               The main execution logic is in `execute_block`.
         """
-        evaluator = ExpressionEvaluator(
-            current_vars, self.functions, self, self.debug)
+        evaluator = ExpressionEvaluator(current_vars, self.functions, self, self.debug)
         line = line.strip()
         if not line or line.startswith("%%"):
             return None
 
         try:
             # --- Seed Command (NEW for REPL) ---
-            if line.startswith('?'):  # Quick check before regex
+            if line.startswith("?"):  # Quick check before regex
                 seed_match = re.match(r"\?\s+(.+)", line)
                 if seed_match:
                     seed_value_str = seed_match.group(1).strip()
@@ -1839,17 +2107,18 @@ Notes:
                         random.seed(seed_value_for_func)
                         if self.debug:
                             print(
-                                f"  Seeded random generator with int: {seed_value_for_func}")
+                                f"  Seeded random generator with int: {seed_value_for_func}"
+                            )
                     except ValueError:
                         seed_value_for_func = seed_value_str
                         random.seed(seed_value_for_func)
                         if self.debug:
                             print(
-                                f"  Seeded random generator with string: '{seed_value_for_func}'")
+                                f"  Seeded random generator with string: '{seed_value_for_func}'"
+                            )
                     return None  # Seed command handled, return nothing
                 else:
-                    raise ValueError(
-                        "Invalid seed syntax. Expected '? <seed_value>'")
+                    raise ValueError("Invalid seed syntax. Expected '? <seed_value>'")
             elif line.startswith(LET_KEYWORD):
                 return self.handle_let(line, current_vars, evaluator)
             elif line.startswith(REAS_KEYWORD):
@@ -1858,24 +2127,40 @@ Notes:
                 return self.handle_show(line, evaluator)
             elif "|>" in line:  # Function call statement
                 return self.handle_function_call(line, current_vars, evaluator)
-            elif "::(" in line:  # Function definition (only declaration in REPL context)
+            elif (
+                "::(" in line
+            ):  # Function definition (only declaration in REPL context)
                 print("Function defined (syntax checked).")
                 # Assume void return for REPL def
-                return self.handle_function_declaration([line, "<-void"], 0, store_function=True)
-            elif line.startswith((IF_KEYWORD, FOR_KEYWORD, WHILE_KEYWORD, GOTO_KEYWORD, LABEL_KEYWORD, RETURN_KEYWORD, LOOP_END_KEYWORD, END_KEYWORD)):
+                return self.handle_function_declaration(
+                    [line, "<-void"], 0, store_function=True
+                )
+            elif line.startswith(
+                (
+                    IF_KEYWORD,
+                    FOR_KEYWORD,
+                    WHILE_KEYWORD,
+                    GOTO_KEYWORD,
+                    LABEL_KEYWORD,
+                    RETURN_KEYWORD,
+                    LOOP_END_KEYWORD,
+                    END_KEYWORD,
+                )
+            ):
                 raise ValueError(
-                    f"Control flow statements ({line.split()[0]}) are not fully supported for single-line execution.")
+                    f"Control flow statements ({line.split()[0]}) are not fully supported for single-line execution."
+                )
             else:
                 # Try to evaluate as a standalone expression? Only for REPL?
                 # Let's disallow for now to be consistent with file execution.
                 raise ValueError(f"Unknown command or invalid statement")
 
         except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
-            raise ValueError(
-                f"Error on line {line_num_for_error + 1}: {e}") from e
+            raise ValueError(f"Error on line {line_num_for_error + 1}: {e}") from e
         except Exception as e:
             raise RuntimeError(
-                f"Unexpected error on line {line_num_for_error + 1}: {type(e).__name__}: {e}") from e
+                f"Unexpected error on line {line_num_for_error + 1}: {type(e).__name__}: {e}"
+            ) from e
 
     def handle_let(self, line, current_vars, evaluator):
         """Handles LET statements in the specified variable scope."""
@@ -1895,7 +2180,8 @@ Notes:
             # Allow redefining in REPL maybe, but error in script?
             # Let's error consistently for now.
             raise ValueError(
-                f"Variable '{var_name}' already exists. Use REAS to reassign.")
+                f"Variable '{var_name}' already exists. Use REAS to reassign."
+            )
 
         # Use the provided evaluator which uses current_vars
         value = evaluator.evaluate(expression, var_type)
@@ -1903,24 +2189,27 @@ Notes:
         # Check if the evaluated type matches the declared type after conversion attempt
         final_type = _get_python_type_name(value)
         # allow int to be assigned to float
-        if var_type != "any" and final_type != var_type and not (var_type == "float" and final_type == "int"):
+        if (
+            var_type != "any"
+            and final_type != var_type
+            and not (var_type == "float" and final_type == "int")
+        ):
             # This check might be redundant if evaluate enforces expected_type strictly
             print(
-                f"Warning: Evaluated type '{final_type}' differs from declared type '{var_type}' for '{var_name}'. Value: {repr(value)}")
+                f"Warning: Evaluated type '{final_type}' differs from declared type '{var_type}' for '{var_name}'. Value: {repr(value)}"
+            )
             # Re-convert to be sure? Or trust evaluate? Let's trust evaluate for now.
 
         current_vars[var_name] = (value, var_type)
         if self.debug:
-            print(
-                f"  LET Declared: {var_name} = {repr(value)} (type: {var_type})")
+            print(f"  LET Declared: {var_name} = {repr(value)} (type: {var_type})")
 
     def handle_reas(self, line, current_vars, evaluator):
         """Handles REAS statements in the specified variable scope."""
         # Handle list operations disguised as REAS first
         # Example: REAS myList = myList value [a]
         # Check if RHS starts with var name
-        list_op_match = re.match(
-            r"REAS\s+([a-zA-Z_]\w*)\s*=\s*(\1\s+.+)", line)
+        list_op_match = re.match(r"REAS\s+([a-zA-Z_]\w*)\s*=\s*(\1\s+.+)", line)
         if list_op_match:
             var_name, list_op_expr = list_op_match.groups()
             if var_name not in current_vars:
@@ -1929,7 +2218,9 @@ Notes:
             try:
                 new_value = evaluator.evaluate(
                     # Expect original type
-                    list_op_expr, current_vars[var_name][1])
+                    list_op_expr,
+                    current_vars[var_name][1],
+                )
                 # Evaluator's list op should have modified in-place for lists,
                 # or returned new value for strings. Reassign necessary for strings.
                 current_vars[var_name] = (new_value, current_vars[var_name][1])
@@ -1951,33 +2242,42 @@ Notes:
 
         if var_name not in current_vars:
             raise ValueError(
-                f"Variable '{var_name}' does not exist. Use LET to declare.")
+                f"Variable '{var_name}' does not exist. Use LET to declare."
+            )
 
         original_type = current_vars[var_name][1]
         if self.debug:
             print(
-                f"  Parsed REAS: var_name={var_name} (type: {original_type}), expression={expression}")
+                f"  Parsed REAS: var_name={var_name} (type: {original_type}), expression={expression}"
+            )
 
         # Evaluate the expression, expecting the variable's original type
         value = evaluator.evaluate(expression, original_type)
 
         # Type check after evaluation (optional, depends on strictness)
         final_type = _get_python_type_name(value)
-        if original_type != "any" and final_type != original_type and not (original_type == "float" and final_type == "int"):
+        if (
+            original_type != "any"
+            and final_type != original_type
+            and not (original_type == "float" and final_type == "int")
+        ):
             print(
-                f"Warning: Reassigning '{var_name}' of type '{original_type}' with value of type '{final_type}'. Value: {repr(value)}")
+                f"Warning: Reassigning '{var_name}' of type '{original_type}' with value of type '{final_type}'. Value: {repr(value)}"
+            )
             # Allow reassignment but warn? Or error? Let's allow with warning.
 
         # Keep original declared type
         current_vars[var_name] = (value, original_type)
         if self.debug:
             print(
-                f"  REAS Reassigned: {var_name} = {repr(value)} (type: {original_type})")
+                f"  REAS Reassigned: {var_name} = {repr(value)} (type: {original_type})"
+            )
 
     def handle_show(self, line, evaluator):
         """Handles SHOW statements."""
-        match = re.match(r"SHOW\((.+)\)", line,
-                         re.DOTALL)  # Allow multiline expressions
+        match = re.match(
+            r"SHOW\((.+)\)", line, re.DOTALL
+        )  # Allow multiline expressions
         if not match:
             raise ValueError(f"Invalid SHOW syntax, expected SHOW(...)")
 
@@ -2010,7 +2310,9 @@ Notes:
             print(f"Error in SHOW expression '{expression}': {e}")
             # Don't raise, just print error for SHOW
 
-    def handle_function_declaration(self, lines: List[str], start_index: int, store_function: bool) -> int:
+    def handle_function_declaration(
+        self, lines: List[str], start_index: int, store_function: bool
+    ) -> int:
         """
         Parses function declaration, optionally stores it, and returns number of lines in the function body+return.
         Raises ValueError on syntax errors.
@@ -2019,8 +2321,7 @@ Notes:
         # Allow spaces around ::
         match = re.match(r"([a-zA-Z_]\w*)\s*::\s*\((.*?)\)\s*->", decl_line)
         if not match:
-            raise ValueError(
-                f"Invalid function declaration syntax: {decl_line}")
+            raise ValueError(f"Invalid function declaration syntax: {decl_line}")
 
         func_name, params_str = match.groups()
         if self.debug and store_function:
@@ -2034,20 +2335,23 @@ Notes:
                 param_part = param_part.strip()
                 if not param_part:
                     raise ValueError(
-                        f"Empty parameter declaration in function '{func_name}'")
-                param_match = re.match(
-                    r"([a-zA-Z_]\w*)\s*:\s*(\w+)", param_part)
+                        f"Empty parameter declaration in function '{func_name}'"
+                    )
+                param_match = re.match(r"([a-zA-Z_]\w*)\s*:\s*(\w+)", param_part)
                 if not param_match:
                     raise ValueError(
-                        f"Invalid parameter syntax '{param_part}' in function '{func_name}'")
+                        f"Invalid parameter syntax '{param_part}' in function '{func_name}'"
+                    )
                 param_name, param_type = param_match.groups()
 
                 if param_type not in self.supported_types:
                     raise ValueError(
-                        f"Unsupported parameter type '{param_type}' for '{param_name}' in function '{func_name}'")
+                        f"Unsupported parameter type '{param_type}' for '{param_name}' in function '{func_name}'"
+                    )
                 if param_name in param_names:
                     raise ValueError(
-                        f"Duplicate parameter name '{param_name}' in function '{func_name}'")
+                        f"Duplicate parameter name '{param_name}' in function '{func_name}'"
+                    )
                 params.append((param_name, param_type))
                 param_names.add(param_name)
 
@@ -2070,10 +2374,12 @@ Notes:
                     parsed_return_type = line_content[2:].strip()
                     if not parsed_return_type:
                         raise ValueError(
-                            f"Missing return type after '<-' in function '{func_name}' on line {current_index + 1}")
+                            f"Missing return type after '<-' in function '{func_name}' on line {current_index + 1}"
+                        )
                     if parsed_return_type not in self.supported_types:
                         raise ValueError(
-                            f"Unsupported return type '{parsed_return_type}' in function '{func_name}'")
+                            f"Unsupported return type '{parsed_return_type}' in function '{func_name}'"
+                        )
                     return_type = parsed_return_type
                     lines_processed += 1  # Count the return line
                     break  # Function definition complete
@@ -2097,21 +2403,29 @@ Notes:
 
         if return_type is None:
             raise ValueError(
-                f"Function '{func_name}' defined starting on line {start_index + 1} has no return type declaration ('<- type')")
+                f"Function '{func_name}' defined starting on line {start_index + 1} has no return type declaration ('<- type')"
+            )
 
         # Store the function if requested (during pre-scan)
         if store_function:
             if func_name in self.functions:
                 raise ValueError(f"Function '{func_name}' already defined.")
             self.functions[func_name] = Function(
-                func_name, params, body_lines, return_type)
+                func_name, params, body_lines, return_type
+            )
             if self.debug:
                 print(
-                    f"  Stored function '{func_name}' ({len(params)} params, {len(body_lines)} body lines, returns {return_type})")
+                    f"  Stored function '{func_name}' ({len(params)} params, {len(body_lines)} body lines, returns {return_type})"
+                )
 
         return lines_processed  # Return number of lines consumed by body + return
 
-    def handle_function_call(self, line: str, caller_vars: Dict[str, tuple[Any, str]], caller_evaluator: ExpressionEvaluator) -> Any:
+    def handle_function_call(
+        self,
+        line: str,
+        caller_vars: Dict[str, tuple[Any, str]],
+        caller_evaluator: ExpressionEvaluator,
+    ) -> Any:
         """Handles function calls with the |> operator, manages scope."""
         if self.debug:
             print(f"  Handling function call statement: {line}")
@@ -2129,8 +2443,7 @@ Notes:
 
         func = self.functions[func_name]
         if self.debug:
-            print(
-                f"  Calling function '{func_name}' (returns {func.return_type})")
+            print(f"  Calling function '{func_name}' (returns {func.return_type})")
 
         # --- Argument Parsing and Evaluation ---
         evaluated_args = []
@@ -2139,8 +2452,7 @@ Notes:
             if args_str_content:
                 # Simple split by comma - might fail with commas inside nested calls or literals
                 # A more robust parser is needed for complex arguments.
-                arg_expressions = [arg.strip()
-                                   for arg in args_str_content.split(",")]
+                arg_expressions = [arg.strip() for arg in args_str_content.split(",")]
 
                 if len(arg_expressions) != len(func.params):
                     raise ValueError(
@@ -2151,30 +2463,35 @@ Notes:
                 for i, arg_expr in enumerate(arg_expressions):
                     param_name, param_type = func.params[i]
                     try:
-                        arg_value = caller_evaluator.evaluate(
-                            arg_expr, param_type)
+                        arg_value = caller_evaluator.evaluate(arg_expr, param_type)
                         evaluated_args.append(arg_value)
                         if self.debug:
                             print(
-                                f"    Arg '{param_name}': '{arg_expr}' -> {repr(arg_value)}")
+                                f"    Arg '{param_name}': '{arg_expr}' -> {repr(arg_value)}"
+                            )
                     except (ValueError, TypeError, IndexError) as e:
                         raise ValueError(
-                            f"Error evaluating argument {i+1} ('{param_name}') for function '{func_name}': {e}")
+                            f"Error evaluating argument {i+1} ('{param_name}') for function '{func_name}': {e}"
+                        )
             elif len(func.params) != 0:  # () provided but function expects args
                 raise ValueError(
-                    f"Function '{func_name}' expects {len(func.params)} arguments, but got 0")
+                    f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
+                )
 
         elif args_str == "_" and len(func.params) != 0:
             raise ValueError(
-                f"Function '{func_name}' expects {len(func.params)} arguments, but got '_' (no arguments passed)")
+                f"Function '{func_name}' expects {len(func.params)} arguments, but got '_' (no arguments passed)"
+            )
         elif args_str == "()" and len(func.params) != 0:
             raise ValueError(
-                f"Function '{func_name}' expects {len(func.params)} arguments, but got 0")
+                f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
+            )
         # Should be covered above, but double check
         elif len(evaluated_args) != len(func.params):
             # This case might occur if args_str is empty/invalid when params expected
             raise ValueError(
-                f"Argument count mismatch for function '{func_name}': expected {len(func.params)}, got {len(evaluated_args)}")
+                f"Argument count mismatch for function '{func_name}': expected {len(func.params)}, got {len(evaluated_args)}"
+            )
 
         # --- Scope Setup ---
         local_vars: Dict[str, tuple[Any, str]] = {}
@@ -2182,8 +2499,7 @@ Notes:
         for i, (param_name, param_type) in enumerate(func.params):
             local_vars[param_name] = (evaluated_args[i], param_type)
         if self.debug:
-            print(
-                f"  Function '{func_name}' local scope initialized: {local_vars}")
+            print(f"  Function '{func_name}' local scope initialized: {local_vars}")
 
         # --- Execute Function Body ---
         # The function body uses its own evaluator with the local scope
@@ -2192,40 +2508,49 @@ Notes:
         # --- Type Check Return Value ---
         if return_value is None and func.return_type != "void":
             print(
-                f"Warning: Function '{func_name}' reached end without RETURN, but expected '{func.return_type}'. Returning None.")
+                f"Warning: Function '{func_name}' reached end without RETURN, but expected '{func.return_type}'. Returning None."
+            )
             # Convert None to the expected type if possible (e.g., 0 for int, "" for string)
             try:
                 # Use a temporary evaluator for this conversion
                 temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
-                return_value = temp_eval._convert_type(
-                    None, "void", func.return_type)
+                return_value = temp_eval._convert_type(None, "void", func.return_type)
                 if self.debug:
                     print(
-                        f"  Converted implicit None return to: {repr(return_value)} ({func.return_type})")
+                        f"  Converted implicit None return to: {repr(return_value)} ({func.return_type})"
+                    )
             except ValueError:
                 # If conversion fails, return None anyway
                 pass
         elif return_value is not None:
             # Check if the actual return value matches the declared return type
             actual_return_type = _get_python_type_name(return_value)
-            if func.return_type != "any" and actual_return_type != func.return_type and not (func.return_type == "float" and actual_return_type == "int"):
+            if (
+                func.return_type != "any"
+                and actual_return_type != func.return_type
+                and not (func.return_type == "float" and actual_return_type == "int")
+            ):
                 # Try to convert to the declared type
                 try:
                     # Use a temporary evaluator for this conversion
                     temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
                     converted_return_value = temp_eval._convert_type(
-                        return_value, actual_return_type, func.return_type)
+                        return_value, actual_return_type, func.return_type
+                    )
                     if self.debug:
                         print(
-                            f"  Converted return value from {actual_return_type} to {func.return_type}: {repr(converted_return_value)}")
+                            f"  Converted return value from {actual_return_type} to {func.return_type}: {repr(converted_return_value)}"
+                        )
                     return_value = converted_return_value
                 except ValueError as e:
                     raise ValueError(
-                        f"Function '{func_name}' returned type '{actual_return_type}' but expected '{func.return_type}', and conversion failed: {e}")
+                        f"Function '{func_name}' returned type '{actual_return_type}' but expected '{func.return_type}', and conversion failed: {e}"
+                    )
 
         if self.debug:
             print(
-                f"  Function '{func_name}' finished execution, returning: {repr(return_value)}")
+                f"  Function '{func_name}' finished execution, returning: {repr(return_value)}"
+            )
 
         # Return the final (potentially type-checked and converted) value
         return return_value
@@ -2233,15 +2558,22 @@ Notes:
 
 # Part 5: `main` function and entry point (No major changes needed)
 
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Pepper Programming Language Interpreter.")
-    parser.add_argument("filepath", nargs="?",
-                        help="The path to the script file to execute.")
-    parser.add_argument("-d", "--debug", action="store_true",
-                        help="Enable detailed execution tracing.")
+        description="Pepper Programming Language Interpreter."
+    )
     parser.add_argument(
-        "-s", "--debug_show", action="store_true", help="Enable debug output specifically for SHOW statements."
+        "filepath", nargs="?", help="The path to the script file to execute."
+    )
+    parser.add_argument(
+        "-d", "--debug", action="store_true", help="Enable detailed execution tracing."
+    )
+    parser.add_argument(
+        "-s",
+        "--debug_show",
+        action="store_true",
+        help="Enable debug output specifically for SHOW statements.",
     )
     args = parser.parse_args()
 
