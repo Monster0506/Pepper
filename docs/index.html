@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Official documentation for the Pepper Programming Language">
+    <title>Pepper Programming Language Documentation</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
+</head>
+
+<body>
+    <div class="controls">
+        <input type="text" id="search" placeholder="Search documentation... (Press '/' to focus)">
+        <button class="theme-switch" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+    </div>
+
+    <button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top">↑</button>
+    <div class="container">
+        <nav class="sidebar">
+            <h2>Contents</h2>
+            <ul id="table-of-contents">
+                <!-- Will be populated dynamically -->
+            </ul>
+        </nav>
+
+        <main class="content">
+            <h1>Pepper Programming Language <span class="version-badge">v1.0</span></h1>
+            <div class="header-actions">
+                <a href="https://github.com/yourusername/pepper" class="github-link" target="_blank">
+                    <img src="images/github.svg" alt="GitHub"> View on GitHub
+                </a>
+                <button class="download-btn">
+                    <img src="images/download.svg" alt="Download">
+                    Download v1.0
+                </button>
+            </div>
+
+
+            <section id="introduction">
+                <h2>Introduction</h2>
+                <p>Pepper is a simple yet powerful programming language designed for educational purposes. It combines
+                    intuitive syntax with modern programming concepts, making it ideal for learning programming
+                    fundamentals.</p>
+            </section>
+            <section id="features">
+                <h2>Key Features</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <img src="images/educational.svg" alt="Educational">
+                        <h3>Educational Focus</h3>
+                        <p>Designed specifically for learning programming concepts</p>
+                    </div>
+                    <div class="feature-card">
+                        <img src="images/simple.svg" alt="Simple">
+                        <h3>Simple Syntax</h3>
+                        <p>Clear and readable code structure</p>
+                    </div>
+                    <div class="feature-card">
+                        <img src="images/modern.svg" alt="Modern">
+                        <h3>Modern Features</h3>
+                        <p>Includes essential programming concepts</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="language-selector">
+                <button class="active" data-os="windows">Windows</button>
+                <button data-os="mac">macOS</button>
+                <button data-os="linux">Linux</button>
+            </div>
+            <section id="installation">
+                <h2>Installation</h2>
+                <p>To run Pepper programs, you need Python 3.7 or later installed on your system. The interpreter can be
+                    run directly from the command line:</p>
+                <pre><code>python main.py your_script.pep</code></pre>
+                <p>For interactive mode:</p>
+                <pre><code>python main.py</code></pre>
+            </section>
+
+            <section id="quick-start">
+                <h2>Quick Start</h2>
+                <div class="example">
+                    <h3>Hello World</h3>
+                    <pre><code>%% Hello World in Pepper
+LET message: string = "Hello, World!"
+SHOW(message)</code></pre>
+                    <div class="tip">
+                        Save this code in a file with .pep extension and run it using the Pepper interpreter.
+                    </div>
+                </div>
+            </section>
+
+            <section id="basic-syntax">
+                <h2>Basic Syntax</h2>
+                <p>Pepper uses a clean, readable syntax with clear keywords and statements.</p>
+                <div class="example">
+                    <h3>Comments</h3>
+                    <pre><code>%% This is a comment</code></pre>
+
+                    <h3>Statements</h3>
+                    <pre><code>LET x: int = 10
+SHOW(x)
+REAS x = x 1 +</code></pre>
+                </div>
+            </section>
+
+            <section id="variables">
+                <h2>Variables</h2>
+                <p>Variables in Pepper must be declared with explicit types using the <code>LET</code> keyword and can
+                    be reassigned using <code>REAS</code>.</p>
+                <div class="example">
+                    <pre><code>LET age: int = 25
+LET name: string = "John"
+LET pi: float = 3.14
+LET isActive: bool = true
+LET numbers: list = [1, 2, 3]
+
+REAS age = age 1 +</code></pre>
+                </div>
+            </section>
+
+            <section id="data-types">
+                <h2>Data Types</h2>
+                <table>
+                    <tr>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Example</th>
+                    </tr>
+                    <tr>
+                        <td>int</td>
+                        <td>Integer numbers</td>
+                        <td><code>LET x: int = 42</code></td>
+                    </tr>
+                    <tr>
+                        <td>float</td>
+                        <td>Floating-point numbers</td>
+                        <td><code>LET pi: float = 3.14159</code></td>
+                    </tr>
+                    <tr>
+                        <td>string</td>
+                        <td>Text strings</td>
+                        <td><code>LET name: string = "Hello"</code></td>
+                    </tr>
+                    <tr>
+                        <td>bool</td>
+                        <td>Boolean values</td>
+                        <td><code>LET flag: bool = true</code></td>
+                    </tr>
+                    <tr>
+                        <td>list</td>
+                        <td>Lists of values</td>
+                        <td><code>LET nums: list = [1, 2, 3]</code></td>
+                    </tr>
+                </table>
+            </section>
+
+            <section id="operators">
+                <h2>Operators</h2>
+                <h3>Arithmetic (RPN)</h3>
+                <p>Pepper uses Reverse Polish Notation (RPN) for arithmetic operations.</p>
+                <div class="example">
+                    <pre><code>LET result: int = 5 3 +    %% Addition
+LET product: int = 4 2 *  %% Multiplication
+LET power: float = 2 3 ** %% Exponentiation
+LET div: float = 10 2 /   %% Division
+LET intDiv: int = 10 3 !/ %% Integer division</code></pre>
+                </div>
+            </section>
+            <section id="boolean-operators">
+                <h3>Boolean Operators</h3>
+                <div class="example">
+                    <pre><code>LET x1: int = 5
+LET y: int = 3
+LET p: bool = true
+LET q: bool = false
+LET a: bool = x1 && y     %% Equality
+LET b: bool = x1 &$$& y   %% Inequality
+LET c: bool = p @$@ q    %% Logical AND
+LET d: bool = p #$# q    %% Logical OR
+LET e: bool = ~@ p       %% Logical NOT</code></pre>
+                </div>
+            </section>
+
+            <section id="control-flow">
+                <h2>Control Flow</h2>
+                <h3>Conditional Statements</h3>
+                <div class="example">
+                    <pre><code>IF x > y DO
+    SHOW("x is greater")
+ELIF x < y DO
+    SHOW("y is greater")
+ELSE DO
+    SHOW("x equals y")
+END</code></pre>
+                </div>
+
+                <h3>Loops</h3>
+                <div class="example">
+                    <pre><code>FOR i FROM 1 TO 5 DO
+    SHOW(i)
+LOOP_END
+
+WHILE x > 0 DO
+    REAS x = x 1 -
+LOOP_END</code></pre>
+                </div>
+
+                <h3>GOTO Statements</h3>
+                <div class="example">
+                    <pre><code>LBL start;
+SHOW("Loop")
+REAS x = x 1 -
+GOTO start; x > 0</code></pre>
+                </div>
+            </section>
+
+            <section id="functions">
+                <h2>Functions</h2>
+                <p>Functions are declared using the <code>::()</code> syntax and called using the <code>|></code>
+                    operator.</p>
+                <div class="example">
+                    <pre><code>greet::(name: string)->
+    SHOW("Hello, " + name + "!")
+<-void
+
+("World") |> greet
+
+add::(x: int, y: int)->
+    RETURN x y +
+<-int
+
+LET sum: int = (5, 3) |> add</code></pre>
+                </div>
+            </section>
+
+            <section id="lists">
+                <h2>Lists</h2>
+                <p>Lists support various operations using special syntax.</p>
+                <div class="example">
+                    <pre><code>LET nums: list = [1, 2, 3]
+REAS nums = nums 4 [a]      %% Append
+REAS nums = nums 2 [r]      %% Remove
+REAS nums = nums 5 [n] 2    %% Insert at position
+REAS nums = nums 1 [p] 10   %% Replace first occurrence
+REAS nums = nums [?]        %% Get random element
+LET len: int = nums [l]     %% Get length
+LET val: int = nums [i] 2   %% Get item at index</code></pre>
+                </div>
+            </section>
+
+            <section id="strings">
+                <h2>Strings</h2>
+                <p>Strings support similar operations to lists plus concatenation.</p>
+                <div class="example">
+                    <pre><code>LET str: string = "Hello"
+REAS str = str "!" [a]      %% Append
+REAS str = str "l" [r]      %% Remove first 'l'
+REAS str = str "x" [n] 2    %% Insert at position
+LET len: int = str [l]      %% Get length</code></pre>
+                </div>
+            </section>
+
+            <section id="standard-library">
+                <h2>Standard Library</h2>
+                <p>Pepper includes a standard library with various utility functions.</p>
+                <div class="example">
+                    <h3>String Functions</h3>
+                    <pre><code>LET upper: string = upper FROM string "hello" _
+LET lower: string = lower FROM string "HELLO" _
+LET parts: list = split FROM string "a,b,c" (",")</code></pre>
+
+                    <h3>Math Functions</h3>
+                    <pre><code>LET root: float = sqrt FROM math 16.0 _
+LET power: float = pow FROM math 2 (3)</code></pre>
+
+                    <h3>Type Functions</h3>
+                    <pre><code>LET isNum: bool = is_int FROM type 42 _
+LET type: string = get FROM type "hello" _</code></pre>
+                </div>
+            </section>
+
+            <section id="input-output">
+                <h2>Input/Output</h2>
+                <div class="example">
+                    <pre><code>LET name: string = INPT("Enter your name: ")
+SHOW("Hello, " + name + "!")</code></pre>
+                </div>
+            </section>
+
+            <section id="random">
+                <h2>Random Operations</h2>
+                <div class="example">
+                    <pre><code>? 42                          %% Set random seed
+LET x2: float = ?             %% Random float 0-1
+LET y1: float = ? 10 *        %% Random float 0-10
+LET z: int = ? 6 * 1 +       %% Random int 1-6</code></pre>
+                </div>
+            </section>
+
+            <section id="examples">
+                <h2>Complete Examples</h2>
+                <div class="example">
+                    <h3>Temperature Converter</h3>
+                    <pre><code>convert::(celsius: float)->
+    LET fahrenheit: float = celsius 9 * 5 / 32 +
+    RETURN fahrenheit
+<-float
+
+LET temp: float = INPT("Enter temperature in Celsius: ")
+LET converted: float = (temp) |> convert
+SHOW(temp + "C is " + converted + "F")</code></pre>
+                </div>
+
+                <div class="example">
+                    <h3>Number Guessing Game</h3>
+                    <pre><code>? 42
+LET target: int = ? 100 * 1 +  %% SETS ANSWER TO 64
+LET guess: int = INPT("Guess a number (1-100): ")
+WHILE guess &$$& target DO
+    IF guess < target DO
+        SHOW("Too low!")
+    ELSE DO
+        SHOW("Too high!")
+    END
+    REAS guess = INPT("Try again: ")
+LOOP_END
+SHOW("Correct!")
+                        </code></pre>
+                </div>
+            </section>
+
+            <section id="best-practices">
+                <h2>Best Practices</h2>
+                <div class="example">
+                    <h3>Naming Conventions</h3>
+                    <ul>
+                        <li>Use descriptive variable names</li>
+                        <li>Start variable names with letters</li>
+                        <li>Use underscores for multi-word names</li>
+                    </ul>
+                    <div class="warning">
+                        Avoid using reserved keywords as variable names.
+                    </div>
+                </div>
+            </section>
+            <section id="community">
+                <h2>Community & Support</h2>
+                <div class="community-links">
+                    <a href="#" class="community-card">
+                        <img src="images/discord.svg" alt="Discord">
+                        <h3>Join Discord</h3>
+                        <p>Connect with other Pepper developers</p>
+                    </a>
+                    <a href="#" class="community-card">
+                        <img src="images/forum.svg" alt="Forum">
+                        <h3>Community Forum</h3>
+                        <p>Ask questions and share knowledge</p>
+                    </a>
+                    <a href="#" class="community-card">
+                        <img src="images/bug.svg" alt="Issues">
+                        <h3>Report Issues</h3>
+                        <p>Help improve Pepper</p>
+                    </a>
+                </div>
+            </section>
+
+
+    </div>
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="#introduction">Getting Started</a></li>
+                    <li><a href="#documentation">Documentation</a></li>
+                    <li><a href="#examples">Examples</a></li>
+                    <li><a href="#community">Community</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul>
+                    <li><a href="#">Blog</a></li>
+                    <li><a href="#">Tutorials</a></li>
+                    <li><a href="#">Contributing</a></li>
+                    <li><a href="#">Release Notes</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Connect</h3>
+                <div class="social-links">
+                    <a href="#" title="GitHub"><img src="images/github.svg" alt="GitHub"></a>
+                    <a href="#" title="Discord"><img src="images/discord.svg" alt="Discord"></a>
+                    <a href="#" title="Twitter"><img src="images/twitter.svg" alt="Twitter"></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 Pepper Programming Language. All rights reserved.</p>
+        </div>
+    </footer>
+    <script>
+        // Enhanced keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                document.getElementById('search').focus();
+            }
+            if (e.key === 'Escape') {
+                document.getElementById('search').blur();
+            }
+        });
+
+        // Enhanced search with highlighting
+        document.getElementById('search').addEventListener('input', function (e) {
+            const searchText = e.target.value.toLowerCase();
+            document.querySelectorAll('section').forEach(section => {
+                const text = section.textContent.toLowerCase();
+                const match = text.includes(searchText);
+                section.style.display = match ? '' : 'none';
+
+                if (match && searchText) {
+                    highlightText(section, searchText);
+                } else {
+                    removeHighlights(section);
+                }
+            });
+        });
+
+        function highlightText(element, searchText) {
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+            let node;
+            while (node = walker.nextNode()) {
+                const parent = node.parentNode;
+                if (parent.nodeName !== 'CODE' && parent.nodeName !== 'SCRIPT') {
+                    const content = node.textContent;
+                    const regex = new RegExp(searchText, 'gi');
+                    if (regex.test(content)) {
+                        const span = document.createElement('span');
+                        span.innerHTML = content.replace(regex, match => `<mark>${match}</mark>`);
+                        parent.replaceChild(span, node);
+                    }
+                }
+            }
+        }
+
+        function removeHighlights(element) {
+            element.querySelectorAll('mark').forEach(mark => {
+                const parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                parent.normalize();
+            });
+        }
+        // Copy button functionality
+        document.querySelectorAll('pre').forEach(pre => {
+            const button = document.createElement('button');
+            button.className = 'copy-button';
+            button.textContent = 'Copy';
+            button.onclick = () => {
+                navigator.clipboard.writeText(pre.querySelector('code').textContent);
+                button.textContent = 'Copied!';
+                setTimeout(() => button.textContent = 'Copy', 2000);
+            };
+            pre.style.position = 'relative';
+            pre.appendChild(button);
+        });
+
+        // Search functionality
+        // Replace the search and highlight functions with these improved versions
+        let searchTimeout;
+
+        document.getElementById('search').addEventListener('input', function (e) {
+            clearTimeout(searchTimeout);
+            const searchText = e.target.value.toLowerCase().trim();
+
+            // Clear all previous highlights first
+            document.querySelectorAll('mark').forEach(mark => {
+                const parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                parent.normalize();
+            });
+
+            // Reset visibility if search is empty
+            if (!searchText) {
+                document.querySelectorAll('section').forEach(section => {
+                    section.style.display = '';
+                });
+                return;
+            }
+
+            // Debounce search
+            searchTimeout = setTimeout(() => {
+                document.querySelectorAll('section').forEach(section => {
+                    const text = section.textContent.toLowerCase();
+                    const match = text.includes(searchText);
+                    section.style.display = match ? '' : 'none';
+
+                    if (match) {
+                        highlightMatches(section, searchText);
+                    }
+                });
+            }, 200);
+        });
+
+        function highlightMatches(element, searchText) {
+            const walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: function (node) {
+                        return node.parentNode.nodeName !== 'CODE' &&
+                            node.parentNode.nodeName !== 'SCRIPT' &&
+                            node.parentNode.nodeName !== 'MARK'
+                            ? NodeFilter.FILTER_ACCEPT
+                            : NodeFilter.FILTER_REJECT;
+                    }
+                }
+            );
+
+            let node;
+            while (node = walker.nextNode()) {
+                const content = node.textContent;
+                if (content.toLowerCase().includes(searchText)) {
+                    const regex = new RegExp(`(${escapeRegExp(searchText)})`, 'gi');
+                    const replacedContent = content.replace(regex, '<mark>$1</mark>');
+
+                    if (replacedContent !== content) {
+                        const span = document.createElement('span');
+                        span.innerHTML = replacedContent;
+                        node.parentNode.replaceChild(span, node);
+                    }
+                }
+            }
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // Theme switching
+        function toggleTheme() {
+            document.body.dataset.theme =
+                document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', document.body.dataset.theme);
+        }
+
+        // Scroll to top
+        window.onscroll = function () {
+            const btn = document.querySelector('.scroll-to-top');
+            btn.classList.toggle('visible', window.scrollY > 300);
+        };
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Load saved theme
+        document.body.dataset.theme = localStorage.getItem('theme') || 'light';
+
+        document.querySelectorAll('.language-selector button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.language-selector button').forEach(b => b.classList.remove('active'));
+                button.classList.add('active');
+                // Update installation instructions based on OS
+                const os = button.dataset.os;
+                const instructions = {
+                    windows: 'python main.py your_script.pep',
+                    mac: './pepper your_script.pep',
+                    linux: './pepper your_script.pep'
+                };
+                document.querySelector('#installation pre code').textContent = instructions[os];
+            });
+        });
+
+
+        // Add smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+
+
+        // Table of Contents Generator
+        function generateTableOfContents() {
+            const toc = document.getElementById('table-of-contents');
+            const sections = document.querySelectorAll('main > section');
+            toc.innerHTML = ''; // Clear existing content
+        
+            sections.forEach(section => {
+                if (!section.id || !section.querySelector('h2')) return;
+        
+                const sectionItem = createSectionItem(section);
+                const subsections = section.querySelectorAll('h3');
+                
+                if (subsections.length > 0) {
+                    const subsectionList = createSubsectionList(subsections);
+                    sectionItem.appendChild(subsectionList);
+                }
+        
+                toc.appendChild(sectionItem);
+            });
+        }
+        
+        function createSectionItem(section) {
+            const li = document.createElement('li');
+            const link = document.createElement('a');
+            const heading = section.querySelector('h2');
+            
+            link.href = `#${section.id}`;
+            link.textContent = heading.textContent;
+            li.appendChild(link);
+        
+            if (section.querySelectorAll('h3').length > 0) {
+                li.classList.add('has-subsections');
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    section.scrollIntoView({ behavior: 'smooth' });
+                    toggleSection(li);
+                });
+            } else {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    section.scrollIntoView({ behavior: 'smooth' });
+                });
+            }
+        
+            return li;
+        }
+        
+        function createSubsectionList(subsections) {
+            const ul = document.createElement('ul');
+            ul.className = 'subsections';
+        
+            subsections.forEach(subsection => {
+                const li = document.createElement('li');
+                const link = document.createElement('a');
+        
+                if (!subsection.id) {
+                    subsection.id = subsection.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                }
+        
+                link.href = `#${subsection.id}`;
+                link.textContent = subsection.textContent;
+                
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    subsection.scrollIntoView({ behavior: 'smooth' });
+                });
+        
+                li.appendChild(link);
+                ul.appendChild(li);
+            });
+        
+            return ul;
+        }
+        
+        function toggleSection(sectionItem) {
+            const wasExpanded = sectionItem.classList.contains('expanded');
+            
+            // Close all sections first
+            document.querySelectorAll('.has-subsections').forEach(item => {
+                if (item !== sectionItem) {
+                    item.classList.remove('expanded');
+                }
+            });
+        
+            // Toggle current section
+            sectionItem.classList.toggle('expanded', !wasExpanded);
+        }
+        
+        function updateActiveTOCItem() {
+            const scrollPosition = window.scrollY + 150;
+            let currentSection = null;
+            let currentSubsection = null;
+        
+            // Find current section and subsection
+            document.querySelectorAll('main > section').forEach(section => {
+                if (section.offsetTop <= scrollPosition && 
+                    (section.offsetTop + section.offsetHeight) > scrollPosition) {
+                    currentSection = section;
+                    
+                    section.querySelectorAll('h3').forEach(subsection => {
+                        if (subsection.offsetTop <= scrollPosition && 
+                            (subsection.offsetTop + subsection.offsetHeight) > scrollPosition) {
+                            currentSubsection = subsection;
+                        }
+                    });
+                }
+            });
+        
+            // Update active states
+            document.querySelectorAll('#table-of-contents a').forEach(link => {
+                link.classList.remove('active');
+            });
+        
+            if (currentSection) {
+                const sectionLink = document.querySelector(`#table-of-contents a[href="#${currentSection.id}"]`);
+                if (sectionLink) {
+                    sectionLink.classList.add('active');
+                    const parentLi = sectionLink.closest('.has-subsections');
+                    if (parentLi) {
+                        parentLi.classList.add('expanded');
+                    }
+                }
+            }
+        
+            if (currentSubsection) {
+                const subsectionLink = document.querySelector(`#table-of-contents a[href="#${currentSubsection.id}"]`);
+                if (subsectionLink) {
+                    subsectionLink.classList.add('active');
+                }
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            generateTableOfContents();
+            window.addEventListener('scroll', debounce(updateActiveTOCItem, 100));
+            updateActiveTOCItem();
+        });
+        
+        // Utility function for scroll performance
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    </script>
+</body>
+
+</html>
