@@ -1,11 +1,13 @@
 LET options:list = ["scissors", "paper", "rock"]
 LET p1choice:string = ""
 LET p2choice:string = ""
+LET result:int = 0
 LET p1index:int = 0
 LET p2index:int = 0
 LET sub:int = 0
 LET mod: int = 0
 LET input:string = ""
+LET again: string = ""
 
 
 LBL start;
@@ -23,14 +25,18 @@ REAS mod = sub 3 %
 
 SHOW("Player 2 Picked: " + p2choice)
 
+REAS result = p1index p2index - 3 + 3 %
+SHOW(result)
 
-IF mod && 0 DO
+IF result && 0 DO 
     SHOW("It's a TIE!")
-ELIF mod && 1 DO
+ELIF result && 1 DO
     SHOW("Player 2 Wins!")
-ELSE DO
+ELSE DO 
     SHOW("Player 1 Wins!")
 END
 
 REAS input = INPT("Play again? [yes/no]")
-GOTO start; input [i] 1 && "y"
+REAS again =  input [i] 1
+SHOW(again && "y")
+GOTO start; again && "y"

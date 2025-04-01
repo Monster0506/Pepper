@@ -41,3 +41,5 @@ LET rand_int: int = rnd FROM random _ (10)
 SHOW("Random int between 0 and 10: " + rand_int)
 REAS rand_int = rnd FROM random _ (5, 15)
 SHOW("Random int between 5 and 15: " + rand_int)
+LET str:string = join FROM string ", " (["a", "b"])
+SHOW(str) %% Output: ab

@@ -34,10 +34,11 @@ class StandardLibrary:
             "string": {
                 "upper": self.string_upper,
                 "lower": self.string_lower,
-                "len": self.string_len,  # Renamed str_len to len for brevity
+                "len": self.string_len,
                 "trim": self.string_trim,
                 "replace": self.string_replace,
                 "split": self.string_split,
+                "join": self.string_join,
             },
             "math": {
                 "sqrt": self.math_sqrt,
@@ -45,6 +46,9 @@ class StandardLibrary:
                 "abs": self.math_abs,
                 "floor": self.math_floor,
                 "ceil": self.math_ceil,
+                "round": self.math_round,
+                "min": self.math_min,
+                "max": self.math_max,
             },
             "random": {  # Added random namespace
                 "rnd": self.math_rnd,  # rnd now lives here
@@ -64,7 +68,9 @@ class StandardLibrary:
         try:
             return self._evaluator._convert_type(value, source_type, target_type)
         except Exception as e:
-            raise ValueError(f"Stdlib conversion failed: {e}")
+            raise ValueError(
+                f"Stdlib conversion failed converting {value} from {source_type} to {target_type}: {e}"
+            )
 
     # --- String Functions ---
     # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
@@ -126,6 +132,19 @@ class StandardLibrary:
             raise ValueError("Cannot split string by empty delimiter")
         return base_value.split(delimiter)
 
+    def string_join(self, base_value, base_type, args):
+        if base_type != "string":
+            raise ValueError("'string.join' requires a string base value")
+        if len(args) != 1:
+            raise ValueError(
+                "'string.join' requires exactly one argument: (list to join)"
+            )
+        base_value = self._convert(
+            base_value, _get_python_type_name(base_value), "string"
+        )
+        lst = self._convert(args[0], _get_python_type_name(args[0]), "list")
+        return base_value.join(lst)
+
     # --- Math Functions ---
     # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
 
@@ -172,6 +191,33 @@ class StandardLibrary:
             return math.floor(num_base)
         except ValueError:
             raise ValueError("'math.floor' requires a numeric base value")
+
+    def math_round(self, base_value, base_type, args):
+        if len(args) > 1:
+            raise ValueError("'math.round' requires at most 1 argument")
+        try:
+            num_base = self._convert(base_value, base_type, "float")
+            return round(num_base, args[0])
+        except ValueError:
+            raise ValueError("'math.round' requires a numeric base value")
+
+    def math_min(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'math.min' takes no arguments")
+        try:
+            num_base = self._convert(base_value, base_type, "list")
+            return min(num_base)
+        except ValueError:
+            raise ValueError("'math.min' requires a list base value")
+
+    def math_max(self, base_value, base_type, args):
+        if len(args) != 0:
+            raise ValueError("'math.max' takes no arguments")
+        try:
+            num_base = self._convert(base_value, base_type, "list")
+            return max(num_base)
+        except ValueError:
+            raise ValueError("'math.max' requires a list base value")
 
     def math_ceil(self, base_value, base_type, args):
         if len(args) != 0:
@@ -688,7 +734,7 @@ class ExpressionEvaluator:
                     "float": float,
                     "bool": lambda x: x.lower() == "true",
                     "string": str,
-                    "list": lambda x: [e.strip() for e in x.split(",")],
+                    "list": lambda x: [e.strip() for e in self._parse_argument_list(x)],
                 }
                 if expected_type in temp_conversions:
                     return temp_conversions[expected_type](user_input)
@@ -2236,7 +2282,9 @@ Notes:
         # Regular REAS
         match = re.match(r"REAS\s+([a-zA-Z_]\w*)\s*=\s*(.+)", line)
         if not match:
-            raise ValueError(f"Invalid REAS syntax")
+            raise ValueError(
+                "Invalid REAS syntax. You may be specifing a type where none is needed"
+            )
 
         var_name, expression = match.groups()
 
@@ -2331,7 +2379,9 @@ Notes:
         params: List[tuple[str, str]] = []
         param_names = set()
         if params_str.strip():
-            for i, param_part in enumerate(params_str.split(",")):
+            for _, param_part in enumerate(
+                self.expression_evaluator._parse_argument_list(params_str)
+            ):
                 param_part = param_part.strip()
                 if not param_part:
                     raise ValueError(
@@ -2452,7 +2502,12 @@ Notes:
             if args_str_content:
                 # Simple split by comma - might fail with commas inside nested calls or literals
                 # A more robust parser is needed for complex arguments.
-                arg_expressions = [arg.strip() for arg in args_str_content.split(",")]
+                arg_expressions = [
+                    arg.strip()
+                    for arg in self.expression_evaluator._parse_argument_list(
+                        args_str_content
+                    )
+                ]
 
                 if len(arg_expressions) != len(func.params):
                     raise ValueError(
