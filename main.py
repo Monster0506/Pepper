@@ -244,6 +244,11 @@ class StandardLibrary:
             # More specific error message is often helpful
             raise ValueError(f"'random.rnd' takes 0, 1, or 2 arguments, got {num_args}")
 
+        if base_type != "int" and base_type != "void":
+            raise ValueError(
+                f"'random.rnd' requires an integer or void base value, recieved {base_type}"
+            )
+
         match num_args:
             case 0:
                 # No arguments: Mimic random.random()
@@ -285,21 +290,31 @@ class StandardLibrary:
         return base_type == target_type
 
     def type_is_int(self, base_value, base_type, args):
-        return self._type_check(base_type, "int", args)
+        return self._check_type(base_value, base_type, "int", args)
 
     def type_is_float(self, base_value, base_type, args):
-        return self._type_check(base_type, "float", args)
+        return self._check_type(base_value, base_type, "float", args)
 
     def type_is_string(self, base_value, base_type, args):
-        return self._type_check(base_type, "string", args)
+        return self._check_type(base_value, base_type, "string", args)
 
     def type_is_list(self, base_value, base_type, args):
-        return self._type_check(base_type, "list", args)
+        return self._check_type(base_value, base_type, "list", args)
 
     def type_is_bool(self, base_value, base_type, args):
-        return self._type_check(base_type, "bool", args)
+        return self._check_type(base_value, base_type, "bool", args)
+
+    def _check_type(self, base_value, base_type, expected_type, args):
+        if self._debug:
+            print(
+                f"  Checking if type of {base_value} is {expected_type}: {base_value} (type: {base_type})"
+            )
+        return self._type_check(base_type, expected_type, args)
 
     def type_get_type(self, base_value, base_type, args):
+        if self._debug:
+            print(f"  Getting type of {base_value}: {base_type} (type: {base_type})")
+
         if len(args) != 0:
             raise ValueError("'type.get' takes no arguments")
         return base_type
@@ -435,7 +450,7 @@ class ExpressionEvaluator:
         input_match = re.fullmatch(r'INPT\("([^"]*)"\)', expression)
         if input_match:
             if self.debug:
-                print(f"  Evaluating as INPUT")
+                print("  Evaluating as INPUT")
             return self._evaluate_input(input_match, expected_type)
 
         # --- NEW: 4. Standard Library Call ---
@@ -445,7 +460,7 @@ class ExpressionEvaluator:
         )
         if stdlib_match:
             if self.debug:
-                print(f"  Evaluating as Namespaced Standard Library call")
+                print("  Evaluating as Namespaced Standard Library call")
             # Pass the match and expected_type to the new handler
             return self._evaluate_namespaced_stdlib_call(stdlib_match, expected_type)
         # --- End NEW ---
@@ -454,7 +469,7 @@ class ExpressionEvaluator:
         type_conv_match = re.fullmatch(r"(.+?)\s*:>\s*(\w+)", expression)
         if type_conv_match:
             if self.debug:
-                print(f"  Evaluating as type conversion")
+                print("  Evaluating as type conversion")
             # Pass expected_type
             return self._evaluate_type_conversion(type_conv_match, expected_type)
 
@@ -464,7 +479,7 @@ class ExpressionEvaluator:
         )  # Handle multiline
         if list_literal_match:
             if self.debug:
-                print(f"  Evaluating as list literal")
+                print("  Evaluating as list literal")
             # Evaluate list literal first, then convert if needed
             raw_list = self._evaluate_list_literal(list_literal_match)
             return self._convert_type(raw_list, "list", expected_type)
@@ -477,7 +492,7 @@ class ExpressionEvaluator:
         )
         if list_op_match:
             if self.debug:
-                print(f"  Evaluating as list operation")
+                print("  Evaluating as list operation")
             # List operations modify in-place and return the list
             modified_list = self._evaluate_list_operation(list_op_match)
             # Update the variable directly
@@ -490,14 +505,14 @@ class ExpressionEvaluator:
         list_len_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[l\]", expression)
         if list_len_match:
             if self.debug:
-                print(f"  Evaluating as list length")
+                print("  Evaluating as list length")
             length = self._evaluate_list_length(list_len_match)
             return self._convert_type(length, "int", expected_type)
 
         list_rand_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[\?\]", expression)
         if list_rand_match:
             if self.debug:
-                print(f"  Evaluating as list random choice")
+                print("  Evaluating as list random choice")
             choice = self._evaluate_list_random(list_rand_match)
             # Determine type of choice dynamically
             choice_type = _get_python_type_name(choice)
@@ -507,7 +522,7 @@ class ExpressionEvaluator:
         list_idx_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[i\]\s+(.+)", expression)
         if list_idx_match:
             if self.debug:
-                print(f"  Evaluating as list indexing (1-based)")
+                print("  Evaluating as list indexing (1-based)")
             item = self._evaluate_list_indexing(list_idx_match)
             if item is None:  # Handle index out of range returning None
                 return None
@@ -518,7 +533,7 @@ class ExpressionEvaluator:
         list_find_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[f\]\s+(.+)", expression)
         if list_find_match:
             if self.debug:
-                print(f"  Evaluating as list find (1-based index, 0 if not found)")
+                print("  Evaluating as list find (1-based index, 0 if not found)")
             index = self._evaluate_list_finding(list_find_match)
             return self._convert_type(index, "int", expected_type)
 
@@ -528,14 +543,12 @@ class ExpressionEvaluator:
         )
         if func_call_match:
             if self.debug:
-                print(f"  Evaluating as function call within expression")
+                print("  Evaluating as function call within expression")
             # Call the interpreter's handler, passing the expression line,
             # the current variables, and this evaluator instance for arg evaluation
             try:
                 # Pass the raw expression string as the 'line' argument
-                return_value = self.interpreter.handle_function_call(
-                    expression, self.variables, self
-                )
+                return_value = self.interpreter.handle_function_call(expression, self)
                 # Get the type of the actual returned value
                 return_type = _get_python_type_name(return_value)
                 # Convert the return value to the type expected by the outer expression
@@ -553,12 +566,12 @@ class ExpressionEvaluator:
         ):  # Basic heuristic: quotes imply potential string concat
             try:
                 if self.debug:
-                    print(f"  Attempting string concatenation")
+                    print("  Attempting string concatenation")
                 result = self._evaluate_string_concatenation(expression)
                 return self._convert_type(result, "string", expected_type)
             except ValueError:
                 if self.debug:
-                    print(f"  String concatenation failed, continuing...")
+                    print("  String concatenation failed, continuing...")
                 pass  # Fall through if not a valid string concat
 
         # 9. Boolean Expressions (Infix)
@@ -567,7 +580,7 @@ class ExpressionEvaluator:
         )
         if bool_match_infix:
             if self.debug:
-                print(f"  Evaluating as infix boolean expression")
+                print("  Evaluating as infix boolean expression")
             result = self._evaluate_boolean_expression_infix(bool_match_infix)
             return self._convert_type(result, "bool", expected_type)
 
@@ -575,7 +588,7 @@ class ExpressionEvaluator:
         bool_match_neg = re.fullmatch(r"~@\s+(.+)", expression)
         if bool_match_neg:
             if self.debug:
-                print(f"  Evaluating as boolean negation")
+                print("  Evaluating as boolean negation")
             result = self._evaluate_boolean_negation(bool_match_neg)
             return self._convert_type(result, "bool", expected_type)
 
@@ -586,7 +599,7 @@ class ExpressionEvaluator:
         ):
             try:
                 if self.debug:
-                    print(f"  Attempting RPN evaluation")
+                    print("  Attempting RPN evaluation")
                 # Handle ? for random number generation within RPN
                 if "?" in expression:
                     parts = expression.split()
@@ -600,13 +613,13 @@ class ExpressionEvaluator:
                 # Determine result type (int or float)
                 result_type = "int" if isinstance(result, int) else "float"
                 return self._convert_type(result, result_type, expected_type)
-            except (ValueError, ZeroDivisionError, TypeError) as e:
+            except (ValueError, ZeroDivisionError, TypeError):
                 if self.debug:
-                    print(f"  RPN evaluation failed: {e}")
+                    print("  RPN evaluation failed: {e}")
                 # Fall through if RPN fails
             except IndexError:
                 if self.debug:
-                    print(f"  RPN evaluation failed: Not enough operands")
+                    print("  RPN evaluation failed: Not enough operands")
 
         # If nothing else matches, raise Error
         raise ValueError(f"Unable to evaluate expression: '{expression}'")
@@ -755,6 +768,10 @@ class ExpressionEvaluator:
         # --- String Literal Check (Stricter) ---
         # Use regex to ensure ONLY a quoted string (+ optional surrounding whitespace).
         # This pattern handles escaped quotes (\") inside the string.
+        lst_match = re.fullmatch(r"\s*\[(.*)\]\s*", expression)
+        if lst_match:
+            return None
+
         str_match = re.fullmatch(r'\s*"((?:[^"\\]|\\.)*)"\s*', expression)
         if str_match:
             raw_content = str_match.group(1)  # The content inside the quotes
@@ -804,7 +821,7 @@ class ExpressionEvaluator:
         # Return None to indicate this expression is not a simple literal.
         return None
 
-    def _convert_type(self, value, source_type, target_type):
+    def _convert_type(self, value, source_type, target_type) -> Any:
         """Enhanced type conversion system"""
         if source_type == target_type or target_type is None or target_type == "any":
             return value
@@ -856,7 +873,6 @@ class ExpressionEvaluator:
 
         result = ""
         parts = []
-        current_part = ""
         idx = 0
         start = 0
         in_quotes = None  # Track the type of quote (' or ") currently active
@@ -1673,6 +1689,30 @@ Notes:
                 line_number += 1
                 continue
 
+            let_match = re.match(r"LET\s+([a-zA-Z_]\w*)\s*:\s*(\w+)\s*=\s*(.+)", line)
+            if let_match:
+                var_name, var_type, expression = let_match.groups()
+                try:
+                    # Attempt to evaluate the expression as a literal
+                    # But ONLY if it contains no variables!
+                    if not re.search(r"[a-zA-Z_]\w*", expression):
+                        value = self.expression_evaluator._evaluate_literal(
+                            expression, None
+                        )
+                        if value is not None:
+                            # Convert value to string representation if needed
+                            # This handles bools, numbers, strings
+                            replacement = repr(value)
+                            line = f"LET {var_name}:{var_type} = {replacement}"  # Reconstruct
+                            lines[line_number] = line  # Update original line
+                            if self.debug:
+                                print(
+                                    f"  [Pre-scan] Constant folded '{expression}' to '{replacement}' on line {line_number + 1}"
+                                )
+
+                except (ValueError, SyntaxError):
+                    # Not a constant expression, ignore
+                    pass
             # Find Labels
             if line.startswith(LABEL_KEYWORD):
                 match = re.match(r"LBL\s+([a-zA-Z_]\w*)\s*;", line)
@@ -1793,7 +1833,7 @@ Notes:
                     # Condition is optional
                     match = re.match(r"GOTO\s+(\w+)\s*(?:;\s*(.+))?", line)
                     if not match:
-                        raise ValueError(f"Invalid GOTO syntax")
+                        raise ValueError("Invalid GOTO syntax")
                     target, condition = match.groups()
 
                     target_line_num = -1  # 1-based target line
@@ -1948,7 +1988,7 @@ Notes:
                     # Check loop condition
                     if current_vars[var_name][0] > end_val:  # Loop finished
                         if self.debug:
-                            print(f"  FOR loop finished")
+                            print("  FOR loop finished")
                         loop_stack.pop()
                         # Skip to end of loop body
                         line_ptr = self._find_matching_loop_end(lines, line_ptr)
@@ -1976,7 +2016,7 @@ Notes:
 
                     if not cond_val:  # Loop finished or condition initially false
                         if self.debug:
-                            print(f"  WHILE loop finished/skipped")
+                            print("  WHILE loop finished/skipped")
                         if (
                             loop_stack
                             and loop_stack[-1][0] == "while"
@@ -2037,14 +2077,14 @@ Notes:
                 elif line.startswith(SHOW_KEYWORD):
                     self.handle_show(line, evaluator)
                 elif "|>" in line:  # Function call as a statement
-                    self.handle_function_call(line, current_vars, evaluator)
+                    self.handle_function_call(line, evaluator)
                 # Add other simple statements here if needed
 
                 # --- Unknown Statement ---
                 else:
                     # Before declaring invalid, try evaluating as a standalone expression?
                     # E.g. allow `x + 1` on a line? Let's disallow for now.
-                    raise ValueError(f"Unknown or invalid statement")
+                    raise ValueError("Unknown or invalid statement")
 
             except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
                 # Catch evaluation and runtime errors
@@ -2061,7 +2101,7 @@ Notes:
         # End of block reached
         if loop_stack:
             raise ValueError(
-                f"Reached end of block with unclosed loop(s) starting on line(s): {[l[1]+1 for l in loop_stack]}"
+                f"Reached end of block with unclosed loop(s) starting on line(s): {[line_num[1]+1 for line_num in loop_stack]}"
             )
         if conditional_stack:
             raise ValueError(
@@ -2172,7 +2212,7 @@ Notes:
             elif line.startswith(SHOW_KEYWORD):
                 return self.handle_show(line, evaluator)
             elif "|>" in line:  # Function call statement
-                return self.handle_function_call(line, current_vars, evaluator)
+                return self.handle_function_call(line, evaluator)
             elif (
                 "::(" in line
             ):  # Function definition (only declaration in REPL context)
@@ -2199,7 +2239,7 @@ Notes:
             else:
                 # Try to evaluate as a standalone expression? Only for REPL?
                 # Let's disallow for now to be consistent with file execution.
-                raise ValueError(f"Unknown command or invalid statement")
+                raise ValueError("Unknown command or invalid statement")
 
         except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
             raise ValueError(f"Error on line {line_num_for_error + 1}: {e}") from e
@@ -2212,7 +2252,7 @@ Notes:
         """Handles LET statements in the specified variable scope."""
         match = re.match(r"LET\s+([a-zA-Z_]\w*)\s*:\s*(\w+)\s*=\s*(.+)", line)
         if not match:
-            raise ValueError(f"Invalid LET syntax")
+            raise ValueError("Invalid LET syntax")
 
         var_name, var_type, expression = match.groups()
         if self.debug:
@@ -2327,7 +2367,7 @@ Notes:
             r"SHOW\((.+)\)", line, re.DOTALL
         )  # Allow multiline expressions
         if not match:
-            raise ValueError(f"Invalid SHOW syntax, expected SHOW(...)")
+            raise ValueError("Invalid SHOW syntax, expected SHOW(...)")
 
         expression = match.group(1).strip()
         if self.debug:
@@ -2473,7 +2513,6 @@ Notes:
     def handle_function_call(
         self,
         line: str,
-        caller_vars: Dict[str, tuple[Any, str]],
         caller_evaluator: ExpressionEvaluator,
     ) -> Any:
         """Handles function calls with the |> operator, manages scope."""
@@ -2484,7 +2523,7 @@ Notes:
             # Maybe it's part of a REAS? e.g. REAS result = (...) |> func
             # Let REAS handle the expression evaluation in that case.
             # If it's a standalone line, it's an error here.
-            raise ValueError(f"Invalid function call syntax")
+            raise ValueError("Invalid function call syntax")
 
         args_str, func_name = match.groups()
 

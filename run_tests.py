@@ -1,4 +1,3 @@
-import os
 import subprocess
 import argparse
 import sys
@@ -15,6 +14,7 @@ except ImportError:
 
     class DummyStyle:
         def __getattr__(self, name: str) -> str:
+            setattr(self, name, "")
             return ""
 
     Fore = DummyStyle()
@@ -67,7 +67,9 @@ def print_line_diff(expected: str, actual: str) -> None:
     print(f"{Fore.YELLOW}---------------------------{Style.RESET_ALL}")
 
 
-def print_char_hunk_diff(expected: str, actual: str, context_chars: int = 15) -> None:
+def print_char_hunk_diff(
+    expected: str, actual: str | None, context_chars: int = 15
+) -> None:
     """Prints a character-by-character diff in hunks with context."""
     print(
         f"{Fore.YELLOW}--- Character Diff (Hunks, Context: {context_chars}) ---{Style.RESET_ALL}"
@@ -86,7 +88,7 @@ def print_char_hunk_diff(expected: str, actual: str, context_chars: int = 15) ->
 
         for tag, i1, i2, j1, j2 in group:
             expected_segment = expected[i1:i2]
-            actual_segment = actual[j1:j2]
+            actual_segment = actual[j1:j2] if actual else ""
 
             # Represent segments line by line for readability
             expected_lines = (
@@ -123,7 +125,6 @@ def print_char_hunk_diff(expected: str, actual: str, context_chars: int = 15) ->
                 # Print deleted part with highlights
                 for eline in expected_lines:
                     line_buffer = f"{Fore.RED}- "
-                    offset = 0
                     for sub_tag, si1, si2, sj1, sj2 in sub_matcher.get_opcodes():
                         # Apply highlights based on sub-matcher relative to the *segment*
                         seg_part = expected_segment[si1:si2]
@@ -145,7 +146,6 @@ def print_char_hunk_diff(expected: str, actual: str, context_chars: int = 15) ->
                 # Print added part with highlights
                 for aline in actual_lines:
                     line_buffer = f"{Fore.GREEN}+ "
-                    offset = 0
                     for sub_tag, si1, si2, sj1, sj2 in sub_matcher.get_opcodes():
                         seg_part = actual_segment[sj1:sj2]
                         if sub_tag == "equal":
@@ -223,7 +223,6 @@ def run_test_process(
 
 
 def check_test_result(
-    test_file: Path,
     run_result: Dict[str, Any],
     expected_output: Optional[str],  # Expects already normalized expected output
 ) -> Tuple[bool, str, Optional[str]]:  # Return actual output for diffing
@@ -265,7 +264,7 @@ def check_test_result(
         if run_result["stderr"]:  # Fail if there's unexpected stderr
             return (
                 False,
-                f"Expected no stderr (no .expected file), but got stderr",
+                "Expected no stderr (no .expected file), but got stderr",
                 actual_output_normalized,
             )
         # Pass if return code 0 and no stderr
@@ -419,16 +418,19 @@ def main() -> None:
                     encoding="utf-8"
                 )
                 # Normalize line endings immediately after reading
-                normalized_expected_output = expected_output_content.replace(
-                    "\r\n", "\n"
-                ).replace("\r", "\n")
+                normalized_expected_output = expected_output_content
+                if expected_output_content:
+                    normalized_expected_output = expected_output_content.replace(
+                        "\r\n", "\n"
+                    ).replace("\r", "\n")
 
                 if args.verbose:
                     print(
                         f"{Fore.YELLOW}--- Expected Output ({expected_output_path.name}) ---{Style.RESET_ALL}"
                     )
                     # Show stripped normalized version for brevity in verbose mode
-                    print(normalized_expected_output.strip())
+                    if normalized_expected_output:
+                        print(normalized_expected_output.strip())
                     print(
                         f"{Fore.YELLOW}-----------------------------------------{Style.RESET_ALL}"
                     )
@@ -450,7 +452,7 @@ def main() -> None:
         # Check the results using the normalized expected output
         # actual_output_for_diff will be normalized but potentially unstripped
         success, reason, actual_output_for_diff = check_test_result(
-            test_file_path, run_result, normalized_expected_output
+            run_result, normalized_expected_output
         )
 
         print(f"\n{Fore.YELLOW}--- Result ---{Style.RESET_ALL}")
@@ -473,7 +475,12 @@ def main() -> None:
                 if args.diff == "line" or args.diff == "both":
                     # Provide stripped versions to unified line diff
                     print_line_diff(
-                        expected_for_diff.strip(), actual_output_for_diff.strip()
+                        expected_for_diff.strip(),
+                        (
+                            actual_output_for_diff.strip()
+                            if actual_output_for_diff
+                            else ""
+                        ),
                     )
                 if args.diff == "hunk" or args.diff == "both":
                     # Provide unstripped (but normalized) versions to hunk diff
