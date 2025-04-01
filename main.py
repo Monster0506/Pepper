@@ -4,7 +4,31 @@ import ast
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 import random
-import math
+from stdlib import StandardLibrary, _get_python_type_name
+
+
+def _is_int(s):
+    if not isinstance(s, str):
+        s = str(s)
+    return re.fullmatch(r"-?\d+", s.strip())
+
+
+def _is_float(s):
+    if not isinstance(s, str):
+        s = str(s)
+    # Basic check, allows ".5", "5." etc.
+    return re.fullmatch(r"-?(\d+(\.\d*)?|\.\d+)", s.strip())
+
+
+def _is_numeric_string(s):
+    """Checks if a string represents an int or a float."""
+    return _is_int(s) or _is_float(s)
+
+
+def _raise(exception):
+    """Helper to raise exceptions inside lambdas."""
+    raise exception
+
 
 # Constants for Keywords
 FOR_KEYWORD = "FOR"
@@ -21,303 +45,6 @@ INPUT_KEYWORD = "INPT"
 GOTO_KEYWORD = "GOTO"
 LABEL_KEYWORD = "LBL"
 RETURN_KEYWORD = "RETURN"
-
-
-class StandardLibrary:
-    """Encapsulates standard library functions for the Pepper language, organized by namespace."""
-
-    def __init__(self, evaluator):
-        self._evaluator = evaluator
-        self._debug = evaluator.debug
-        # Nested dictionary for namespaced functions
-        self.libraries = {
-            "string": {
-                "upper": self.string_upper,
-                "lower": self.string_lower,
-                "len": self.string_len,
-                "trim": self.string_trim,
-                "replace": self.string_replace,
-                "split": self.string_split,
-                "join": self.string_join,
-            },
-            "math": {
-                "sqrt": self.math_sqrt,
-                "pow": self.math_pow,
-                "abs": self.math_abs,
-                "floor": self.math_floor,
-                "ceil": self.math_ceil,
-                "round": self.math_round,
-                "min": self.math_min,
-                "max": self.math_max,
-            },
-            "random": {  # Added random namespace
-                "rnd": self.math_rnd,  # rnd now lives here
-            },
-            "type": {  # Renamed from check to type
-                "is_int": self.type_is_int,
-                "is_float": self.type_is_float,
-                "is_string": self.type_is_string,
-                "is_list": self.type_is_list,
-                "is_bool": self.type_is_bool,
-                "get": self.type_get_type,  # Renamed get_type to get
-            },
-        }
-
-    # Helper to get evaluator's convert function
-    def _convert(self, value, source_type, target_type):
-        try:
-            return self._evaluator._convert_type(value, source_type, target_type)
-        except Exception as e:
-            raise ValueError(
-                f"Stdlib conversion failed converting {value} from {source_type} to {target_type}: {e}"
-            )
-
-    # --- String Functions ---
-    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
-
-    def string_upper(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'string.upper' takes no arguments")
-        if base_type != "string":
-            raise ValueError("'string.upper' requires a string base value")
-        return base_value.upper()
-
-    def string_lower(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'string.lower' takes no arguments")
-        if base_type != "string":
-            raise ValueError("'string.lower' requires a string base value")
-        return base_value.lower()
-
-    def string_len(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'string.len' takes no arguments")
-        # Works on lists too! Check type.
-        if base_type not in ("string", "list"):
-            raise ValueError(
-                f"'string.len' requires a string or list base value, got {base_type}"
-            )
-        return len(base_value)
-
-    def string_trim(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'string.trim' takes no arguments")
-        if base_type != "string":
-            raise ValueError("'string.trim' requires a string base value")
-        return base_value.strip()
-
-    def string_replace(self, base_value, base_type, args):
-        if base_type != "string":
-            raise ValueError("'string.replace' requires a string base value")
-        if len(args) != 2:
-            raise ValueError(
-                "'string.replace' requires exactly two arguments: (old_str, new_str)"
-            )
-
-        old_str = self._convert(args[0], _get_python_type_name(args[0]), "string")
-        new_str = self._convert(args[1], _get_python_type_name(args[1]), "string")
-        return base_value.replace(old_str, new_str)
-
-    def string_split(self, base_value, base_type, args):
-        if base_type != "string":
-            raise ValueError("'string.split' requires a string base value")
-        if len(args) != 1:
-            raise ValueError(
-                "'string.split' requires exactly one argument: (delimiter)"
-            )
-        delimiter = self._convert(args[0], _get_python_type_name(args[0]), "string")
-        # Handle splitting by empty string if desired, or disallow?
-        # Python's split() with empty string raises ValueError. Let's mimic.
-        if not delimiter:
-            raise ValueError("Cannot split string by empty delimiter")
-        return base_value.split(delimiter)
-
-    def string_join(self, base_value, base_type, args):
-        if base_type != "string":
-            raise ValueError("'string.join' requires a string base value")
-        if len(args) != 1:
-            raise ValueError(
-                "'string.join' requires exactly one argument: (list to join)"
-            )
-        base_value = self._convert(
-            base_value, _get_python_type_name(base_value), "string"
-        )
-        lst = self._convert(args[0], _get_python_type_name(args[0]), "list")
-        return base_value.join(lst)
-
-    # --- Math Functions ---
-    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
-
-    def math_sqrt(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'math.sqrt' takes no arguments")
-        try:
-            num_base = self._convert(base_value, base_type, "float")
-        except ValueError:
-            raise ValueError("'math.sqrt' requires a numeric base value")
-        if num_base < 0:
-            raise ValueError("Cannot calculate square root of a negative number")
-        return math.sqrt(num_base)
-
-    def math_pow(self, base_value, base_type, args):
-        if len(args) != 1:
-            raise ValueError("'math.pow' requires exactly one argument: (exponent)")
-        try:
-            num_base = self._convert(base_value, base_type, "float")
-        except ValueError:
-            raise ValueError("'math.pow' requires a numeric base value")
-        try:
-            # Get exponent from args[0]
-            num_exp = self._convert(args[0], _get_python_type_name(args[0]), "float")
-        except ValueError:
-            raise ValueError("'math.pow' requires a numeric exponent argument")
-        return math.pow(num_base, num_exp)
-
-    def math_abs(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'math.abs' takes no arguments")
-        try:
-            target_type = "int" if base_type == "int" else "float"
-            num_base = self._convert(base_value, base_type, target_type)
-            return abs(num_base)
-        except ValueError:
-            raise ValueError("'math.abs' requires a numeric base value")
-
-    def math_floor(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'math.floor' takes no arguments")
-        try:
-            num_base = self._convert(base_value, base_type, "float")
-            return math.floor(num_base)
-        except ValueError:
-            raise ValueError("'math.floor' requires a numeric base value")
-
-    def math_round(self, base_value, base_type, args):
-        if len(args) > 1:
-            raise ValueError("'math.round' requires at most 1 argument")
-        try:
-            num_base = self._convert(base_value, base_type, "float")
-            return round(num_base, args[0])
-        except ValueError:
-            raise ValueError("'math.round' requires a numeric base value")
-
-    def math_min(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'math.min' takes no arguments")
-        try:
-            num_base = self._convert(base_value, base_type, "list")
-            return min(num_base)
-        except ValueError:
-            raise ValueError("'math.min' requires a list base value")
-
-    def math_max(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'math.max' takes no arguments")
-        try:
-            num_base = self._convert(base_value, base_type, "list")
-            return max(num_base)
-        except ValueError:
-            raise ValueError("'math.max' requires a list base value")
-
-    def math_ceil(self, base_value, base_type, args):
-        if len(args) != 0:
-            raise ValueError("'math.ceil' takes no arguments")
-        try:
-            num_base = self._convert(base_value, base_type, "float")
-            return math.ceil(num_base)
-        except ValueError:
-            raise ValueError("'math.ceil' requires a numeric base value")
-
-    # --- Random Functions ---
-    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
-    def math_rnd(self, base_value, base_type, args: list[int]):
-        """
-        Generates a random number based on the number of integer arguments provided.
-        """
-        num_args = len(args)
-        myrandom = random
-        if base_value:
-            myrandom = random.Random()
-            myrandom.seed(base_value)
-
-        if num_args > 2:
-            # More specific error message is often helpful
-            raise ValueError(f"'random.rnd' takes 0, 1, or 2 arguments, got {num_args}")
-
-        if base_type != "int" and base_type != "void":
-            raise ValueError(
-                f"'random.rnd' requires an integer or void base value, recieved {base_type}"
-            )
-
-        match num_args:
-            case 0:
-                # No arguments: Mimic random.random()
-                return myrandom.random()  # Returns float [0.0, 1.0)
-            case 1:
-                # One argument: Mimic random.randrange(stop)
-                stop = args[0]
-                if not isinstance(stop, int):
-                    raise ValueError("random.rnd(stop): 'stop' must be an integer")
-                if stop <= 0:
-                    # random.randrange(stop) requires stop to be positive
-                    raise ValueError(
-                        "random.rnd(stop): argument 'stop' must be positive"
-                    )
-                return myrandom.randrange(stop)  # Returns int [0, stop)
-            case 2:
-                # Two arguments: Mimic random.randint(start, stop)
-                start = args[0]
-                stop = args[1]
-                if not isinstance(start, int) or not isinstance(stop, int):
-                    raise ValueError(
-                        "random.rnd(start, stop): arguments must be integers"
-                    )
-                if start > stop:
-                    # random.randint(a, b) requires a <= b
-                    raise ValueError(
-                        "random.rnd(start, stop): 'start' cannot be greater than 'stop'"
-                    )
-                return myrandom.randint(start, stop)  # Returns int [start, stop]
-
-    # --- Type Checking Functions ---
-    # NEW SIGNATURE: (self, base_value, base_type, args: List[Any])
-
-    def _type_check(
-        self, base_type, target_type, args
-    ):  # Added args for signature match
-        if len(args) != 0:
-            raise ValueError("Type check functions take no arguments")
-        return base_type == target_type
-
-    def type_is_int(self, base_value, base_type, args):
-        return self._check_type(base_value, base_type, "int", args)
-
-    def type_is_float(self, base_value, base_type, args):
-        return self._check_type(base_value, base_type, "float", args)
-
-    def type_is_string(self, base_value, base_type, args):
-        return self._check_type(base_value, base_type, "string", args)
-
-    def type_is_list(self, base_value, base_type, args):
-        return self._check_type(base_value, base_type, "list", args)
-
-    def type_is_bool(self, base_value, base_type, args):
-        return self._check_type(base_value, base_type, "bool", args)
-
-    def _check_type(self, base_value, base_type, expected_type, args):
-        if self._debug:
-            print(
-                f"  Checking if type of {base_value} is {expected_type}: {base_value} (type: {base_type})"
-            )
-        return self._type_check(base_type, expected_type, args)
-
-    def type_get_type(self, base_value, base_type, args):
-        if self._debug:
-            print(f"  Getting type of {base_value}: {base_type} (type: {base_type})")
-
-        if len(args) != 0:
-            raise ValueError("'type.get' takes no arguments")
-        return base_type
 
 
 @dataclass
@@ -1463,44 +1190,6 @@ class ExpressionEvaluator:
 
 
 # --- Helper functions ---
-def _is_int(s):
-    if not isinstance(s, str):
-        s = str(s)
-    return re.fullmatch(r"-?\d+", s.strip())
-
-
-def _is_float(s):
-    if not isinstance(s, str):
-        s = str(s)
-    # Basic check, allows ".5", "5." etc.
-    return re.fullmatch(r"-?(\d+(\.\d*)?|\.\d+)", s.strip())
-
-
-def _is_numeric_string(s):
-    """Checks if a string represents an int or a float."""
-    return _is_int(s) or _is_float(s)
-
-
-def _get_python_type_name(value):
-    """Maps Python types to the language's type names."""
-    if isinstance(value, bool):
-        return "bool"  # Check bool before int
-    if isinstance(value, int):
-        return "int"
-    if isinstance(value, float):
-        return "float"
-    if isinstance(value, str):
-        return "string"
-    if isinstance(value, list):
-        return "list"
-    if value is None:
-        return "void"
-    return "any"
-
-
-def _raise(exception):
-    """Helper to raise exceptions inside lambdas."""
-    raise exception
 
 
 # ------------------------------------------------------------
@@ -1703,7 +1392,8 @@ Notes:
                             # Convert value to string representation if needed
                             # This handles bools, numbers, strings
                             replacement = repr(value)
-                            line = f"LET {var_name}:{var_type} = {replacement}"  # Reconstruct
+                            # Reconstruct
+                            line = f"LET {var_name}:{var_type} = {replacement}"
                             lines[line_number] = line  # Update original line
                             if self.debug:
                                 print(
