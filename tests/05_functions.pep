@@ -1,4 +1,5 @@
 %% Test: Function Declaration and Usage
+IMPORT my_func FROM my_module
 
 %% Basic function with no parameters
 printHello::()->
@@ -40,3 +41,5 @@ calculate::(num:float, text:string)->
 <-string
 
 SHOW((5, "result") |> calculate)
+LET a: int = 5
+SHOW((a) |> my_func)

@@ -1,4 +1,5 @@
 import argparse
+import os
 import re
 import ast
 from dataclasses import dataclass
@@ -45,6 +46,7 @@ INPUT_KEYWORD = "INPT"
 GOTO_KEYWORD = "GOTO"
 LABEL_KEYWORD = "LBL"
 RETURN_KEYWORD = "RETURN"
+IMPORT_KEYWORD = "IMPORT"
 
 
 @dataclass
@@ -60,6 +62,7 @@ class ExpressionEvaluator:
         # Added functions
         self.variables = variables
         self.interpreter = interpreter
+        self.script_directory: Optional[str] = None
 
         # Keep a reference to functions for function calls within expressions
         self.functions = functions
@@ -1213,6 +1216,9 @@ class Interpreter:
         self.variables: Dict[str, tuple[Any, str]] = {}  # Global variables
         self.functions: Dict[str, Function] = {}  # Store defined functions
         self.labels: Dict[str, int] = {}  # Label name -> line number (1-based)
+        self.script_directory: Optional[str] = (
+            None  # Store the directory of the main script
+        )
         self.expression_evaluator = ExpressionEvaluator(
             self.variables, self.functions, interpreter=self, debug=debug
         )  # Pass functions dict
@@ -1220,9 +1226,333 @@ class Interpreter:
         self.debug_show = debug_show
         # No global return_value needed if scope is handled correctly
 
-    def run(self, filepath):
+    def _load_module(self, module_name: str, function_name: str):
+        """
+        Loads a module and extracts a specific function with extensive debugging.
+        """
+        if not self.script_directory:
+            base_path = "."
+            if self.debug:
+                print(
+                    "  [Module Loader] No script directory set, using current directory."
+                )
+        else:
+            base_path = self.script_directory
+            if self.debug:
+                print(
+                    f"  [Module Loader] Using script directory for module loading: {self.script_directory}"
+                )
+
+        module_path = os.path.join(base_path, f"{module_name}.pep")
+        if self.debug:
+            print(f"  [Module Loader] Attempting to load module: {module_name}")
+            print(
+                f"  [Module Loader] Looking for module file at resolved path: {module_path}"
+            )
+
+        try:
+            with open(module_path, "r") as file:
+                module_lines = file.readlines()
+                if self.debug:
+                    print(f"  [Module Loader] Successfully opened module file.")
+                    print(f"  [Module Loader] Module content: {module_lines}")
+
+            # Create a temporary interpreter instance for module loading
+            module_interpreter = Interpreter(
+                debug=self.debug, debug_show=self.debug_show
+            )
+            if self.debug:
+                print(
+                    "  [Module Loader] Creating temporary interpreter instance for module loading."
+                )
+
+            module_interpreter.pre_scan(module_lines)
+            if self.debug:
+                print("  [Module Loader] Pre-scan completed for module.")
+                print(
+                    f"  [Module Loader] Found functions: {list(module_interpreter.functions.keys())}"
+                )
+
+            if function_name not in module_interpreter.functions:
+                if self.debug:
+                    print(
+                        f"  [Module Loader] Function '{function_name}' not found in module '{module_name}'"
+                    )
+                raise ValueError(
+                    f"Function '{function_name}' not found in module '{module_name}'"
+                )
+
+            imported_function = module_interpreter.functions[function_name]
+            if self.debug:
+                print(f"  [Module Loader] Function '{function_name}' found and loaded.")
+                print(f"  [Module Loader] Imported function: {imported_function}")
+            return imported_function
+
+        except FileNotFoundError:
+            if self.debug:
+                print(f"  [Module Loader] Module '{module_name}' not found.")
+            raise FileNotFoundError(f"Module '{module_name}' not found")
+        except ValueError as e:
+            if self.debug:
+                print(f"  [Module Loader] ValueError: {e}")
+            raise ValueError(f"Error loading module '{module_name}': {e}")
+        except Exception as e:
+            if self.debug:
+                print(f"  [Module Loader] Unexpected error: {type(e).__name__}: {e}")
+            raise RuntimeError(
+                f"Unexpected error loading module '{module_name}': {type(e).__name__}: {e}"
+            )
+
+    def execute_line(self, line, line_num_for_error, current_vars):
+        """
+        Executes a single line in the given variable context.
+        Used primarily by REPL or potentially simple sub-execution.
+        NOTE: This is a simplified version and won't handle control flow correctly.
+              The main execution logic is in `execute_block`.
+        """
+        evaluator = ExpressionEvaluator(current_vars, self.functions, self, self.debug)
+        line = line.strip()
+        if not line or line.startswith("%%"):
+            return None
+
+        try:
+            # --- Seed Command (NEW for REPL) ---
+            if line.startswith("?"):  # Quick check before regex
+                seed_match = re.match(r"\?\s+(.+)", line)
+                if seed_match:
+                    seed_value_str = seed_match.group(1).strip()
+                    try:
+                        seed_value_for_func = int(seed_value_str)
+                        random.seed(seed_value_for_func)
+                        if self.debug:
+                            print(
+                                f"  Seeded random generator with int: {seed_value_for_func}"
+                            )
+                    except ValueError:
+                        seed_value_for_func = seed_value_str
+                        random.seed(seed_value_for_func)
+                        if self.debug:
+                            print(
+                                f"  Seeded random generator with string: '{seed_value_for_func}'"
+                            )
+                    return None  # Seed command handled, return nothing
+                else:
+                    raise ValueError("Invalid seed syntax. Expected '? <seed_value>'")
+            elif line.startswith("IMPORT"):
+                match = re.match(
+                    r"IMPORT\s+([a-zA-Z_]\w*)\s+FROM\s+([a-zA-Z0-9_./\\-]+)", line
+                )
+                if not match:
+                    raise ValueError(
+                        "Invalid IMPORT syntax. Expected: IMPORT function_name FROM module_name"
+                    )
+                function_name, module_name = match.groups()
+                try:
+                    imported_function = self._load_module(module_name, function_name)
+                    self.functions[function_name] = imported_function
+                    print(
+                        f"Imported function '{function_name}' from module '{module_name}'"
+                    )
+                    return None
+                except (FileNotFoundError, ValueError) as e:
+                    raise ValueError(f"Error during import: {e}") from e
+
+            elif line.startswith(LET_KEYWORD):
+                return self.handle_let(line, current_vars, evaluator)
+            elif line.startswith(REAS_KEYWORD):
+                return self.handle_reas(line, current_vars, evaluator)
+            elif line.startswith(SHOW_KEYWORD):
+                return self.handle_show(line, evaluator)
+            elif "|>" in line:  # Function call statement
+                return self.handle_function_call(line, evaluator)
+            elif (
+                "::(" in line
+            ):  # Function definition (only declaration in REPL context)
+                print("Function defined (syntax checked).")
+                # Assume void return for REPL def
+                return self.handle_function_declaration(
+                    [line, "<-void"], 0, store_function=True
+                )
+            elif line.startswith(
+                (
+                    IF_KEYWORD,
+                    FOR_KEYWORD,
+                    WHILE_KEYWORD,
+                    GOTO_KEYWORD,
+                    LABEL_KEYWORD,
+                    RETURN_KEYWORD,
+                    LOOP_END_KEYWORD,
+                    END_KEYWORD,
+                )
+            ):
+                raise ValueError(
+                    f"Control flow statements ({line.split()[0]}) are not fully supported for single-line execution."
+                )
+            else:
+                # Try to evaluate as a standalone expression? Only for REPL?
+                # Let's disallow for now to be consistent with file execution.
+                raise ValueError("Unknown command or invalid statement")
+
+        except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
+            raise ValueError(f"Error on line {line_num_for_error + 1}: {e}") from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Unexpected error on line {line_num_for_error + 1}: {type(e).__name__}: {e}"
+            ) from e
+
+    def handle_function_call(
+        self,
+        line: str,
+        caller_evaluator: ExpressionEvaluator,
+    ) -> Any:
+        """Handles function calls with the |> operator, manages scope."""
+        if self.debug:
+            print(f"  Handling function call statement: {line}")
+        match = re.match(r"(\(.*?\)|_)\s*\|>\s*([a-zA-Z_]\w*)", line)
+        if not match:
+            # Check for IMPORT statement *before* raising ValueError
+            import_match = re.match(
+                r"IMPORT\s+([a-zA-Z_]\w*)\s+FROM\s+([a-zA-Z_]\w*)", line
+            )
+            if import_match:
+                raise ValueError(
+                    "IMPORT statement must be on its own line and cannot be part of a function call."
+                )
+            # Maybe it's part of a REAS? e.g. REAS result = (...) |> func
+            # Let REAS handle the expression evaluation in that case.
+            # If it's a standalone line, it's an error here.
+            raise ValueError("Invalid function call syntax")
+
+        args_str, func_name = match.groups()
+
+        if func_name not in self.functions:
+            raise ValueError(f"Undefined function: '{func_name}'")
+
+        func = self.functions[func_name]
+        if self.debug:
+            print(f"  Calling function '{func_name}' (returns {func.return_type})")
+
+        # --- Argument Parsing and Evaluation ---
+        evaluated_args = []
+        if args_str != "_" and args_str.strip() != "()":  # Allow () for no args
+            args_str_content = args_str[1:-1].strip()
+            if args_str_content:
+                # Simple split by comma - might fail with commas inside nested calls or literals
+                # A more robust parser is needed for complex arguments.
+                arg_expressions = [
+                    arg.strip()
+                    for arg in caller_evaluator._parse_argument_list(args_str_content)
+                ]
+
+                if len(arg_expressions) != len(func.params):
+                    raise ValueError(
+                        f"Function '{func_name}' expects {len(func.params)} arguments, but got {len(arg_expressions)}"
+                    )
+
+                # Evaluate arguments *in the caller's scope*
+                for i, arg_expr in enumerate(arg_expressions):
+                    param_name, param_type = func.params[i]
+                    try:
+                        arg_value = caller_evaluator.evaluate(arg_expr, param_type)
+                        evaluated_args.append(arg_value)
+                        if self.debug:
+                            print(
+                                f"    Arg '{param_name}': '{arg_expr}' -> {repr(arg_value)}"
+                            )
+                    except (ValueError, TypeError, IndexError) as e:
+                        raise ValueError(
+                            f"Error evaluating argument {i+1} ('{param_name}') for function '{func_name}': {e}"
+                        )
+            elif len(func.params) != 0:  # () provided but function expects args
+                raise ValueError(
+                    f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
+                )
+
+        elif args_str == "_" and len(func.params) != 0:
+            raise ValueError(
+                f"Function '{func_name}' expects {len(func.params)} arguments, but got '_' (no arguments passed)"
+            )
+        elif args_str == "()" and len(func.params) != 0:
+            raise ValueError(
+                f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
+            )
+        # Should be covered above, but double check
+        elif len(evaluated_args) != len(func.params):
+            # This case might occur if args_str is empty/invalid when params expected
+            raise ValueError(
+                f"Argument count mismatch for function '{func_name}': expected {len(func.params)}, got {len(evaluated_args)}"
+            )
+
+        # --- Scope Setup ---
+        local_vars: Dict[str, tuple[Any, str]] = {}
+        # Bind evaluated arguments to parameter names in the local scope
+        for i, (param_name, param_type) in enumerate(func.params):
+            local_vars[param_name] = (evaluated_args[i], param_type)
+        if self.debug:
+            print(f"  Function '{func_name}' local scope initialized: {local_vars}")
+
+        # --- Execute Function Body ---
+        # The function body uses its own evaluator with the local scope
+        return_value = self.execute_block(func.body, local_vars)
+
+        # --- Type Check Return Value ---
+        if return_value is None and func.return_type != "void":
+            print(
+                f"Warning: Function '{func_name}' reached end without RETURN, but expected '{func.return_type}'. Returning None."
+            )
+            # Convert None to the expected type if possible (e.g., 0 for int, "" for string)
+            try:
+                # Use a temporary evaluator for this conversion
+                temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
+                return_value = temp_eval._convert_type(None, "void", func.return_type)
+                if self.debug:
+                    print(
+                        f"  Converted implicit None return to: {repr(return_value)} ({func.return_type})"
+                    )
+            except ValueError:
+                # If conversion fails, return None anyway
+                pass
+        elif return_value is not None:
+            # Check if the actual return value matches the declared return type
+            actual_return_type = _get_python_type_name(return_value)
+            if (
+                func.return_type != "any"
+                and actual_return_type != func.return_type
+                and not (func.return_type == "float" and actual_return_type == "int")
+            ):
+                # Try to convert to the declared type
+                try:
+                    # Use a temporary evaluator for this conversion
+                    temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
+                    converted_return_value = temp_eval._convert_type(
+                        return_value, actual_return_type, func.return_type
+                    )
+                    if self.debug:
+                        print(
+                            f"  Converted return value from {actual_return_type} to {func.return_type}: {repr(converted_return_value)}"
+                        )
+                    return_value = converted_return_value
+                except ValueError as e:
+                    raise ValueError(
+                        f"Function '{func_name}' returned type '{actual_return_type}' but expected '{func.return_type}', and conversion failed: {e}"
+                    )
+
+        if self.debug:
+            print(
+                f"  Function '{func_name}' finished execution, returning: {repr(return_value)}"
+            )
+
+        # Return the final (potentially type-checked and converted) value
+        return return_value
+
+    def run(self, filepath: str):
         """Runs the interpreter on the given script file."""
         try:
+            self.script_directory = os.path.dirname(os.path.abspath(filepath))
+            if self.debug:
+                print(
+                    f"[Interpreter] Main script directory set to: {self.script_directory}"
+                )
             with open(filepath, "r") as file:
                 lines = file.readlines()
             # Pre-scan for labels and function definitions
@@ -1768,6 +2098,46 @@ Notes:
                     self.handle_show(line, evaluator)
                 elif "|>" in line:  # Function call as a statement
                     self.handle_function_call(line, evaluator)
+                elif line.startswith(IMPORT_KEYWORD):
+                    match = re.match(
+                        r"IMPORT\s+([a-zA-Z_]\w*)\s+FROM\s+([a-zA-Z0-9_./\\-]+)", line
+                    )
+                    if not match:
+                        raise ValueError(
+                            "Invalid IMPORT syntax. Expected: IMPORT function_name FROM module_name"
+                        )
+                    function_name, module_name = match.groups()
+                    try:
+                        if self.debug:
+                            print(
+                                f"  Executing IMPORT: '{function_name}' FROM '{module_name}' at line {current_line_num}"
+                            )
+                        # Load the function using the main interpreter's method
+                        imported_function = self._load_module(
+                            module_name, function_name
+                        )
+                        # Add the loaded function to the *main* interpreter's function dictionary
+                        # This makes it available globally, even if imported inside another function.
+                        self.functions[function_name] = imported_function
+                        if self.debug:
+                            print(
+                                f"  Import successful. '{function_name}' added to functions: {list(self.functions.keys())}"
+                            )
+                        # No need to print confirmation during script execution unless debugging
+
+                    except (FileNotFoundError, ValueError) as e:
+                        # Add line number context to the error
+                        raise ValueError(
+                            f"Error during import on line {current_line_num}: {e}"
+                        ) from e
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Unexpected error during import on line {current_line_num}: {type(e).__name__}: {e}"
+                        ) from e
+
+                    # Crucial: After handling IMPORT, move to the next line
+                    line_ptr += 1
+                    continue  # Skip the rest of the loop for this linepass
                 # Add other simple statements here if needed
 
                 # --- Unknown Statement ---
@@ -1860,84 +2230,84 @@ Notes:
 
     # Remove handle_for, handle_while, handle_if - logic moved into execute_block
 
-    def execute_line(self, line, line_num_for_error, current_vars):
-        """
-        Executes a single line in the given variable context.
-        Used primarily by REPL or potentially simple sub-execution.
-        NOTE: This is a simplified version and won't handle control flow correctly.
-              The main execution logic is in `execute_block`.
-        """
-        evaluator = ExpressionEvaluator(current_vars, self.functions, self, self.debug)
-        line = line.strip()
-        if not line or line.startswith("%%"):
-            return None
-
-        try:
-            # --- Seed Command (NEW for REPL) ---
-            if line.startswith("?"):  # Quick check before regex
-                seed_match = re.match(r"\?\s+(.+)", line)
-                if seed_match:
-                    seed_value_str = seed_match.group(1).strip()
-                    try:
-                        seed_value_for_func = int(seed_value_str)
-                        random.seed(seed_value_for_func)
-                        if self.debug:
-                            print(
-                                f"  Seeded random generator with int: {seed_value_for_func}"
-                            )
-                    except ValueError:
-                        seed_value_for_func = seed_value_str
-                        random.seed(seed_value_for_func)
-                        if self.debug:
-                            print(
-                                f"  Seeded random generator with string: '{seed_value_for_func}'"
-                            )
-                    return None  # Seed command handled, return nothing
-                else:
-                    raise ValueError("Invalid seed syntax. Expected '? <seed_value>'")
-            elif line.startswith(LET_KEYWORD):
-                return self.handle_let(line, current_vars, evaluator)
-            elif line.startswith(REAS_KEYWORD):
-                return self.handle_reas(line, current_vars, evaluator)
-            elif line.startswith(SHOW_KEYWORD):
-                return self.handle_show(line, evaluator)
-            elif "|>" in line:  # Function call statement
-                return self.handle_function_call(line, evaluator)
-            elif (
-                "::(" in line
-            ):  # Function definition (only declaration in REPL context)
-                print("Function defined (syntax checked).")
-                # Assume void return for REPL def
-                return self.handle_function_declaration(
-                    [line, "<-void"], 0, store_function=True
-                )
-            elif line.startswith(
-                (
-                    IF_KEYWORD,
-                    FOR_KEYWORD,
-                    WHILE_KEYWORD,
-                    GOTO_KEYWORD,
-                    LABEL_KEYWORD,
-                    RETURN_KEYWORD,
-                    LOOP_END_KEYWORD,
-                    END_KEYWORD,
-                )
-            ):
-                raise ValueError(
-                    f"Control flow statements ({line.split()[0]}) are not fully supported for single-line execution."
-                )
-            else:
-                # Try to evaluate as a standalone expression? Only for REPL?
-                # Let's disallow for now to be consistent with file execution.
-                raise ValueError("Unknown command or invalid statement")
-
-        except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
-            raise ValueError(f"Error on line {line_num_for_error + 1}: {e}") from e
-        except Exception as e:
-            raise RuntimeError(
-                f"Unexpected error on line {line_num_for_error + 1}: {type(e).__name__}: {e}"
-            ) from e
-
+    # def execute_line(self, line, line_num_for_error, current_vars):
+    #     """
+    #     Executes a single line in the given variable context.
+    #     Used primarily by REPL or potentially simple sub-execution.
+    #     NOTE: This is a simplified version and won't handle control flow correctly.
+    #           The main execution logic is in `execute_block`.
+    #     """
+    #     evaluator = ExpressionEvaluator(current_vars, self.functions, self, self.debug)
+    #     line = line.strip()
+    #     if not line or line.startswith("%%"):
+    #         return None
+    #
+    #     try:
+    #         # --- Seed Command (NEW for REPL) ---
+    #         if line.startswith("?"):  # Quick check before regex
+    #             seed_match = re.match(r"\?\s+(.+)", line)
+    #             if seed_match:
+    #                 seed_value_str = seed_match.group(1).strip()
+    #                 try:
+    #                     seed_value_for_func = int(seed_value_str)
+    #                     random.seed(seed_value_for_func)
+    #                     if self.debug:
+    #                         print(
+    #                             f"  Seeded random generator with int: {seed_value_for_func}"
+    #                         )
+    #                 except ValueError:
+    #                     seed_value_for_func = seed_value_str
+    #                     random.seed(seed_value_for_func)
+    #                     if self.debug:
+    #                         print(
+    #                             f"  Seeded random generator with string: '{seed_value_for_func}'"
+    #                         )
+    #                 return None  # Seed command handled, return nothing
+    #             else:
+    #                 raise ValueError("Invalid seed syntax. Expected '? <seed_value>'")
+    #         elif line.startswith(LET_KEYWORD):
+    #             return self.handle_let(line, current_vars, evaluator)
+    #         elif line.startswith(REAS_KEYWORD):
+    #             return self.handle_reas(line, current_vars, evaluator)
+    #         elif line.startswith(SHOW_KEYWORD):
+    #             return self.handle_show(line, evaluator)
+    #         elif "|>" in line:  # Function call statement
+    #             return self.handle_function_call(line, evaluator)
+    #         elif (
+    #             "::(" in line
+    #         ):  # Function definition (only declaration in REPL context)
+    #             print("Function defined (syntax checked).")
+    #             # Assume void return for REPL def
+    #             return self.handle_function_declaration(
+    #                 [line, "<-void"], 0, store_function=True
+    #             )
+    #         elif line.startswith(
+    #             (
+    #                 IF_KEYWORD,
+    #                 FOR_KEYWORD,
+    #                 WHILE_KEYWORD,
+    #                 GOTO_KEYWORD,
+    #                 LABEL_KEYWORD,
+    #                 RETURN_KEYWORD,
+    #                 LOOP_END_KEYWORD,
+    #                 END_KEYWORD,
+    #             )
+    #         ):
+    #             raise ValueError(
+    #                 f"Control flow statements ({line.split()[0]}) are not fully supported for single-line execution."
+    #             )
+    #         else:
+    #             # Try to evaluate as a standalone expression? Only for REPL?
+    #             # Let's disallow for now to be consistent with file execution.
+    #             raise ValueError("Unknown command or invalid statement")
+    #
+    #     except (ValueError, TypeError, IndexError, ZeroDivisionError) as e:
+    #         raise ValueError(f"Error on line {line_num_for_error + 1}: {e}") from e
+    #     except Exception as e:
+    #         raise RuntimeError(
+    #             f"Unexpected error on line {line_num_for_error + 1}: {type(e).__name__}: {e}"
+    #         ) from e
+    #
     def handle_let(self, line, current_vars, evaluator):
         """Handles LET statements in the specified variable scope."""
         match = re.match(r"LET\s+([a-zA-Z_]\w*)\s*:\s*(\w+)\s*=\s*(.+)", line)
@@ -2200,144 +2570,144 @@ Notes:
 
         return lines_processed  # Return number of lines consumed by body + return
 
-    def handle_function_call(
-        self,
-        line: str,
-        caller_evaluator: ExpressionEvaluator,
-    ) -> Any:
-        """Handles function calls with the |> operator, manages scope."""
-        if self.debug:
-            print(f"  Handling function call statement: {line}")
-        match = re.match(r"(\(.*?\)|_)\s*\|>\s*([a-zA-Z_]\w*)", line)
-        if not match:
-            # Maybe it's part of a REAS? e.g. REAS result = (...) |> func
-            # Let REAS handle the expression evaluation in that case.
-            # If it's a standalone line, it's an error here.
-            raise ValueError("Invalid function call syntax")
-
-        args_str, func_name = match.groups()
-
-        if func_name not in self.functions:
-            raise ValueError(f"Undefined function: '{func_name}'")
-
-        func = self.functions[func_name]
-        if self.debug:
-            print(f"  Calling function '{func_name}' (returns {func.return_type})")
-
-        # --- Argument Parsing and Evaluation ---
-        evaluated_args = []
-        if args_str != "_" and args_str.strip() != "()":  # Allow () for no args
-            args_str_content = args_str[1:-1].strip()
-            if args_str_content:
-                # Simple split by comma - might fail with commas inside nested calls or literals
-                # A more robust parser is needed for complex arguments.
-                arg_expressions = [
-                    arg.strip()
-                    for arg in self.expression_evaluator._parse_argument_list(
-                        args_str_content
-                    )
-                ]
-
-                if len(arg_expressions) != len(func.params):
-                    raise ValueError(
-                        f"Function '{func_name}' expects {len(func.params)} arguments, but got {len(arg_expressions)}"
-                    )
-
-                # Evaluate arguments *in the caller's scope*
-                for i, arg_expr in enumerate(arg_expressions):
-                    param_name, param_type = func.params[i]
-                    try:
-                        arg_value = caller_evaluator.evaluate(arg_expr, param_type)
-                        evaluated_args.append(arg_value)
-                        if self.debug:
-                            print(
-                                f"    Arg '{param_name}': '{arg_expr}' -> {repr(arg_value)}"
-                            )
-                    except (ValueError, TypeError, IndexError) as e:
-                        raise ValueError(
-                            f"Error evaluating argument {i+1} ('{param_name}') for function '{func_name}': {e}"
-                        )
-            elif len(func.params) != 0:  # () provided but function expects args
-                raise ValueError(
-                    f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
-                )
-
-        elif args_str == "_" and len(func.params) != 0:
-            raise ValueError(
-                f"Function '{func_name}' expects {len(func.params)} arguments, but got '_' (no arguments passed)"
-            )
-        elif args_str == "()" and len(func.params) != 0:
-            raise ValueError(
-                f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
-            )
-        # Should be covered above, but double check
-        elif len(evaluated_args) != len(func.params):
-            # This case might occur if args_str is empty/invalid when params expected
-            raise ValueError(
-                f"Argument count mismatch for function '{func_name}': expected {len(func.params)}, got {len(evaluated_args)}"
-            )
-
-        # --- Scope Setup ---
-        local_vars: Dict[str, tuple[Any, str]] = {}
-        # Bind evaluated arguments to parameter names in the local scope
-        for i, (param_name, param_type) in enumerate(func.params):
-            local_vars[param_name] = (evaluated_args[i], param_type)
-        if self.debug:
-            print(f"  Function '{func_name}' local scope initialized: {local_vars}")
-
-        # --- Execute Function Body ---
-        # The function body uses its own evaluator with the local scope
-        return_value = self.execute_block(func.body, local_vars)
-
-        # --- Type Check Return Value ---
-        if return_value is None and func.return_type != "void":
-            print(
-                f"Warning: Function '{func_name}' reached end without RETURN, but expected '{func.return_type}'. Returning None."
-            )
-            # Convert None to the expected type if possible (e.g., 0 for int, "" for string)
-            try:
-                # Use a temporary evaluator for this conversion
-                temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
-                return_value = temp_eval._convert_type(None, "void", func.return_type)
-                if self.debug:
-                    print(
-                        f"  Converted implicit None return to: {repr(return_value)} ({func.return_type})"
-                    )
-            except ValueError:
-                # If conversion fails, return None anyway
-                pass
-        elif return_value is not None:
-            # Check if the actual return value matches the declared return type
-            actual_return_type = _get_python_type_name(return_value)
-            if (
-                func.return_type != "any"
-                and actual_return_type != func.return_type
-                and not (func.return_type == "float" and actual_return_type == "int")
-            ):
-                # Try to convert to the declared type
-                try:
-                    # Use a temporary evaluator for this conversion
-                    temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
-                    converted_return_value = temp_eval._convert_type(
-                        return_value, actual_return_type, func.return_type
-                    )
-                    if self.debug:
-                        print(
-                            f"  Converted return value from {actual_return_type} to {func.return_type}: {repr(converted_return_value)}"
-                        )
-                    return_value = converted_return_value
-                except ValueError as e:
-                    raise ValueError(
-                        f"Function '{func_name}' returned type '{actual_return_type}' but expected '{func.return_type}', and conversion failed: {e}"
-                    )
-
-        if self.debug:
-            print(
-                f"  Function '{func_name}' finished execution, returning: {repr(return_value)}"
-            )
-
-        # Return the final (potentially type-checked and converted) value
-        return return_value
+    # def handle_function_call(
+    #     self,
+    #     line: str,
+    #     caller_evaluator: ExpressionEvaluator,
+    # ) -> Any:
+    #     """Handles function calls with the |> operator, manages scope."""
+    #     if self.debug:
+    #         print(f"  Handling function call statement: {line}")
+    #     match = re.match(r"(\(.*?\)|_)\s*\|>\s*([a-zA-Z_]\w*)", line)
+    #     if not match:
+    #         # Maybe it's part of a REAS? e.g. REAS result = (...) |> func
+    #         # Let REAS handle the expression evaluation in that case.
+    #         # If it's a standalone line, it's an error here.
+    #         raise ValueError("Invalid function call syntax")
+    #
+    #     args_str, func_name = match.groups()
+    #
+    #     if func_name not in self.functions:
+    #         raise ValueError(f"Undefined function: '{func_name}'")
+    #
+    #     func = self.functions[func_name]
+    #     if self.debug:
+    #         print(f"  Calling function '{func_name}' (returns {func.return_type})")
+    #
+    #     # --- Argument Parsing and Evaluation ---
+    #     evaluated_args = []
+    #     if args_str != "_" and args_str.strip() != "()":  # Allow () for no args
+    #         args_str_content = args_str[1:-1].strip()
+    #         if args_str_content:
+    #             # Simple split by comma - might fail with commas inside nested calls or literals
+    #             # A more robust parser is needed for complex arguments.
+    #             arg_expressions = [
+    #                 arg.strip()
+    #                 for arg in self.expression_evaluator._parse_argument_list(
+    #                     args_str_content
+    #                 )
+    #             ]
+    #
+    #             if len(arg_expressions) != len(func.params):
+    #                 raise ValueError(
+    #                     f"Function '{func_name}' expects {len(func.params)} arguments, but got {len(arg_expressions)}"
+    #                 )
+    #
+    #             # Evaluate arguments *in the caller's scope*
+    #             for i, arg_expr in enumerate(arg_expressions):
+    #                 param_name, param_type = func.params[i]
+    #                 try:
+    #                     arg_value = caller_evaluator.evaluate(arg_expr, param_type)
+    #                     evaluated_args.append(arg_value)
+    #                     if self.debug:
+    #                         print(
+    #                             f"    Arg '{param_name}': '{arg_expr}' -> {repr(arg_value)}"
+    #                         )
+    #                 except (ValueError, TypeError, IndexError) as e:
+    #                     raise ValueError(
+    #                         f"Error evaluating argument {i+1} ('{param_name}') for function '{func_name}': {e}"
+    #                     )
+    #         elif len(func.params) != 0:  # () provided but function expects args
+    #             raise ValueError(
+    #                 f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
+    #             )
+    #
+    #     elif args_str == "_" and len(func.params) != 0:
+    #         raise ValueError(
+    #             f"Function '{func_name}' expects {len(func.params)} arguments, but got '_' (no arguments passed)"
+    #         )
+    #     elif args_str == "()" and len(func.params) != 0:
+    #         raise ValueError(
+    #             f"Function '{func_name}' expects {len(func.params)} arguments, but got 0"
+    #         )
+    #     # Should be covered above, but double check
+    #     elif len(evaluated_args) != len(func.params):
+    #         # This case might occur if args_str is empty/invalid when params expected
+    #         raise ValueError(
+    #             f"Argument count mismatch for function '{func_name}': expected {len(func.params)}, got {len(evaluated_args)}"
+    #         )
+    #
+    #     # --- Scope Setup ---
+    #     local_vars: Dict[str, tuple[Any, str]] = {}
+    #     # Bind evaluated arguments to parameter names in the local scope
+    #     for i, (param_name, param_type) in enumerate(func.params):
+    #         local_vars[param_name] = (evaluated_args[i], param_type)
+    #     if self.debug:
+    #         print(f"  Function '{func_name}' local scope initialized: {local_vars}")
+    #
+    #     # --- Execute Function Body ---
+    #     # The function body uses its own evaluator with the local scope
+    #     return_value = self.execute_block(func.body, local_vars)
+    #
+    #     # --- Type Check Return Value ---
+    #     if return_value is None and func.return_type != "void":
+    #         print(
+    #             f"Warning: Function '{func_name}' reached end without RETURN, but expected '{func.return_type}'. Returning None."
+    #         )
+    #         # Convert None to the expected type if possible (e.g., 0 for int, "" for string)
+    #         try:
+    #             # Use a temporary evaluator for this conversion
+    #             temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
+    #             return_value = temp_eval._convert_type(None, "void", func.return_type)
+    #             if self.debug:
+    #                 print(
+    #                     f"  Converted implicit None return to: {repr(return_value)} ({func.return_type})"
+    #                 )
+    #         except ValueError:
+    #             # If conversion fails, return None anyway
+    #             pass
+    #     elif return_value is not None:
+    #         # Check if the actual return value matches the declared return type
+    #         actual_return_type = _get_python_type_name(return_value)
+    #         if (
+    #             func.return_type != "any"
+    #             and actual_return_type != func.return_type
+    #             and not (func.return_type == "float" and actual_return_type == "int")
+    #         ):
+    #             # Try to convert to the declared type
+    #             try:
+    #                 # Use a temporary evaluator for this conversion
+    #                 temp_eval = ExpressionEvaluator({}, {}, self, self.debug)
+    #                 converted_return_value = temp_eval._convert_type(
+    #                     return_value, actual_return_type, func.return_type
+    #                 )
+    #                 if self.debug:
+    #                     print(
+    #                         f"  Converted return value from {actual_return_type} to {func.return_type}: {repr(converted_return_value)}"
+    #                     )
+    #                 return_value = converted_return_value
+    #             except ValueError as e:
+    #                 raise ValueError(
+    #                     f"Function '{func_name}' returned type '{actual_return_type}' but expected '{func.return_type}', and conversion failed: {e}"
+    #                 )
+    #
+    #     if self.debug:
+    #         print(
+    #             f"  Function '{func_name}' finished execution, returning: {repr(return_value)}"
+    #         )
+    #
+    #     # Return the final (potentially type-checked and converted) value
+    #     return return_value
 
 
 # Part 5: `main` function and entry point (No major changes needed)
