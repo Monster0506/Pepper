@@ -605,3 +605,57 @@ footer {
     color: var(--accent-color);
     transform: translateX(5px);
 }
+
+.function-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    background: var(--surface-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.function-table th,
+.function-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.function-table th {
+    background: var(--accent-color);
+    color: var(--text-on-accent);
+    font-weight: 600;
+}
+
+.function-table tr:last-child td {
+    border-bottom: none;
+}
+
+.function-table code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Fira Code', monospace;
+}
+
+.function-table tr:hover {
+    background: var(--hover-color);
+}
+
+.tip {
+    background: var(--info-bg);
+    border-left: 4px solid var(--info-border);
+    padding: 1em;
+    margin: 1em 0;
+    border-radius: 4px;
+}
+
+.tip a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+.tip a:hover {
+    text-decoration: underline;
+}

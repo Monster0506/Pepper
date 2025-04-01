@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Pepper Programming Language Standard Library Reference">
+    <title>Pepper Standard Library Reference</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="styles/stdlib.css">
+    <style>
+        /* Styles for the search bar */
+        .search-container {
+            position: sticky; /* Keep the search bar visible during scrolling */
+            top: 0;          /* Stick to the top */
+            background-color: #f0f0f0; /* Optional: add a background color */
+            padding: 10px;
+            z-index: 100;       /* Ensure it's above other elements */
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- Search Bar -->
+        <div class="search-container">
+            <input type="text" id="search-bar" class="search-bar" placeholder="Search functions..." >
+        </div>
+
+        <h1>Pepper Standard Library Reference</h1>
+        <nav class="library-nav">
+            <ul>
+                <li><a href="#string" class="active">String</a></li>
+                <li><a href="#math">Math</a></li>
+                <li><a href="#random">Random</a></li>
+                <li><a href="#type">Type</a></li>
+                <li><a href="#list">List</a></li>
+                <li><a href="#time">Time</a></li>
+                <li><a href="#file">File</a></li>
+                <li><a href="#system">System</a></li>
+                <li><a href="index.html">← Back to Docs</a></li>
+            </ul>
+        </nav>
+        <button class="back-to-top" onclick="scrollToTop()" title="Back to top">↑</button>
+
+        <section id="string" class="library-section">
+            <h2>String Library (<code>string</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>upper()</h3>
+                    <p>Converts string to uppercase</p>
+                    <div class="example-code"><code>LET</code> up: string = upper <code>FROM</code> string "hello" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>lower()</h3>
+                    <p>Converts string to lowercase</p>
+                    <div class="example-code"><code>LET</code> low: string = lower <code>FROM</code> string "HELLO" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>len()</h3>
+                    <p>Returns length of string</p>
+                    <div class="example-code"><code>LET</code> length: int = len <code>FROM</code> string "hello" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>trim()</h3>
+                    <p>Removes leading/trailing whitespace</p>
+                    <div class="example-code"><code>LET</code> trimmed: string = trim <code>FROM</code> string " hello "
+                        _</div>
+                </div>
+                <div class="function-card">
+                    <h3>replace(old, new)</h3>
+                    <p>Replaces all occurrences of 'old' with 'new'</p>
+                    <div class="example-code"><code>LET</code> replaced: string = replace <code>FROM</code> string
+                        "hello" ("l", "w")</div>
+                </div>
+                <div class="function-card">
+                    <h3>split(delimiter)</h3>
+                    <p>Splits string into list by delimiter</p>
+                    <div class="example-code"><code>LET</code> parts: list = split <code>FROM</code> string "a,b,c"
+                        (",")</div>
+                </div>
+                <div class="function-card">
+                    <h3>join(list)</h3>
+                    <p>Joins list elements with string as delimiter</p>
+                    <div class="example-code"><code>LET</code> joined: string = join <code>FROM</code> string "," (["a",
+                        "b"])</div>
+                </div>
+                <div class="function-card">
+                    <h3>contains(substring)</h3>
+                    <p>Checks if string contains substring</p>
+                    <div class="example-code"><code>LET</code> has: bool = contains <code>FROM</code> string "hello"
+                        ("el")</div>
+                </div>
+                <div class="function-card">
+                    <h3>starts_with(prefix)</h3>
+                    <p>Checks if string starts with prefix</p>
+                    <div class="example-code"><code>LET</code> starts: bool = starts_with <code>FROM</code> string
+                        "hello" ("he")</div>
+                </div>
+                <div class="function-card">
+                    <h3>ends_with(suffix)</h3>
+                    <p>Checks if string ends with suffix</p>
+                    <div class="example-code"><code>LET</code> ends: bool = ends_with <code>FROM</code> string "hello"
+                        ("lo")</div>
+                </div>
+                <div class="function-card">
+                    <h3>repeat(count)</h3>
+                    <p>Repeats string count times</p>
+                    <div class="example-code"><code>LET</code> repeated: string = repeat <code>FROM</code> string "ha"
+                        (3)</div>
+                </div>
+                <div class="function-card">
+                    <h3>reverse()</h3>
+                    <p>Reverses the string</p>
+                    <div class="example-code"><code>LET</code> rev: string = reverse <code>FROM</code> string "hello" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>substr(start, length)</h3>
+                    <p>Gets substring from start position</p>
+                    <div class="example-code"><code>LET</code> sub: string = substr <code>FROM</code> string "hello" (1,
+                        3)</div>
+                </div>
+                <div class="function-card">
+                    <h3>pad_left(length, char)</h3>
+                    <p>Pads string left with char</p>
+                    <div class="example-code"><code>LET</code> padded: string = pad_left <code>FROM</code> string "42"
+                        (5, "0")</div>
+                </div>
+                <div class="function-card">
+                    <h3>pad_right(length, char)</h3>
+                    <p>Pads string right with char</p>
+                    <div class="example-code"><code>LET</code> padded: string = pad_right <code>FROM</code> string "42"
+                        (5, "0")</div>
+                </div>
+                <div class="function-card">
+                    <h3>capitalize()</h3>
+                    <p>Capitalizes first character</p>
+                    <div class="example-code"><code>LET</code> cap: string = capitalize <code>FROM</code> string "hello"
+                        _</div>
+                </div>
+                <div class="function-card">
+                    <h3>title()</h3>
+                    <p>Converts string to title case</p>
+                    <div class="example-code"><code>LET</code> titled: string = title <code>FROM</code> string "hello
+                        world" _</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="math" class="library-section">
+            <h2>Math Library (<code>math</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>sqrt()</h3>
+                    <p>Square root</p>
+                    <div class="example-code"><code>LET</code> root: float = sqrt <code>FROM</code> math 16.0 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>pow(exponent)</h3>
+                    <p>Power function</p>
+                    <div class="example-code"><code>LET</code> power: float = pow <code>FROM</code> math 2.0 (3)</div>
+                </div>
+                <div class="function-card">
+                    <h3>abs()</h3>
+                    <p>Absolute value</p>
+                    <div class="example-code"><code>LET</code> abs_val: float = abs <code>FROM</code> math -42.5 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>floor()</h3>
+                    <p>Floor function</p>
+                    <div class="example-code"><code>LET</code> floor_val: int = floor <code>FROM</code> math 3.7 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>ceil()</h3>
+                    <p>Ceiling function</p>
+                    <div class="example-code"><code>LET</code> ceil_val: int = ceil <code>FROM</code> math 3.2 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>round(decimals)</h3>
+                    <p>Rounds to specified decimal places</p>
+                    <div class="example-code"><code>LET</code> rounded: float = round <code>FROM</code> math 3.14159 (2)
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>sin()</h3>
+                    <p>Sine function</p>
+                    <div class="example-code"><code>LET</code> sin_val: float = sin <code>FROM</code> math 0.0 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>cos()</h3>
+                    <p>Cosine function</p>
+                    <div class="example-code"><code>LET</code> cos_val: float = cos <code>FROM</code> math 0.0 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>tan()</h3>
+                    <p>Tangent function</p>
+                    <div class="example-code"><code>LET</code> tan_val: float = tan <code>FROM</code> math 0.0 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>pi()</h3>
+                    <p>Returns π constant</p>
+                    <div class="example-code"><code>LET</code> pi_val: float = pi <code>FROM</code> math _ _</div>
+                </div>
+                <div class="function-card">
+                    <h3>e()</h3>
+                    <p>Returns e constant</p>
+                    <div class="example-code"><code>LET</code> e_val: float = e <code>FROM</code> math _ _</div>
+                </div>
+                <div class="function-card">
+                    <h3>min(values...)</h3>
+                    <p>Returns minimum value</p>
+                    <div class="example-code"><code>LET</code> minimum: float = min <code>FROM</code> math (1.0, 2.0,
+                        3.0)</div>
+                </div>
+                <div class="function-card">
+                    <h3>max(values...)</h3>
+                    <p>Returns maximum value</p>
+                    <div class="example-code"><code>LET</code> maximum: float = max <code>FROM</code> math (1.0, 2.0,
+                        3.0)</div>
+                </div>
+                <div class="function-card">
+                    <h3>asin()</h3>
+                    <p>Arc sine function</p>
+                    <div class="example-code"><code>LET</code> asin_val: float = asin <code>FROM</code> math 0.5 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>acos()</h3>
+                    <p>Arc cosine function</p>
+                    <div class="example-code"><code>LET</code> acos_val: float = acos <code>FROM</code> math 0.5 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>atan()</h3>
+                    <p>Arc tangent function</p>
+                    <div class="example-code"><code>LET</code> atan_val: float = atan <code>FROM</code> math 0.5 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>log()</h3>
+                    <p>Natural logarithm</p>
+                    <div class="example-code"><code>LET</code> ln_val: float = log <code>FROM</code> math 2.718 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>log10()</h3>
+                    <p>Base-10 logarithm</p>
+                    <div class="example-code"><code>LET</code> log_val: float = log10 <code>FROM</code> math 100.0 _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>exp()</h3>
+                    <p>Exponential function (e^x)</p>
+                    <div class="example-code"><code>LET</code> exp_val: float = exp <code>FROM</code> math 1.0 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>factorial()</h3>
+                    <p>Factorial of a number</p>
+                    <div class="example-code"><code>LET</code> fact: int = factorial <code>FROM</code> math 5 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>gcd(a, b)</h3>
+                    <p>Greatest common divisor</p>
+                    <div class="example-code"><code>LET</code> gcd_val: int = gcd <code>FROM</code> math (12, 18)</div>
+                </div>
+                <div class="function-card">
+                    <h3>lcm(a, b)</h3>
+                    <p>Least common multiple</p>
+                    <div class="example-code"><code>LET</code> lcm_val: int = lcm <code>FROM</code> math (12, 18)</div>
+                </div>
+                <div class="function-card">
+                    <h3>is_prime()</h3>
+                    <p>Checks if number is prime</p>
+                    <div class="example-code"><code>LET</code> prime: bool = is_prime <code>FROM</code> math 17 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>degrees()</h3>
+                    <p>Converts radians to degrees</p>
+                    <div class="example-code"><code>LET</code> deg: float = degrees <code>FROM</code> math 3.14159 _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>radians()</h3>
+                    <p>Converts degrees to radians</p>
+                    <div class="example-code"><code>LET</code> rad: float = radians <code>FROM</code> math 180.0 _</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="random" class="library-section">
+            <h2>Random Library (<code>random</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>rnd()</h3>
+                    <p>Random float between 0 and 1</p>
+                    <div class="example-code"><code>LET</code> r: float = rnd <code>FROM</code> random seed _</div>
+                </div>
+                <div class="function-card">
+                    <h3>rnd(stop)</h3>
+                    <p>Random integer between 0 and stop-1</p>
+                    <div class="example-code"><code>LET</code> n: int = rnd <code>FROM</code> random seed (10)</div>
+                </div>
+                <div class="function-card">
+                    <h3>rnd(start, stop)</h3>
+                    <p>Random integer between start and stop</p>
+                    <div class="example-code"><code>LET</code> d: int = rnd <code>FROM</code> random seed (1, 6)</div>
+                </div>
+                <div class="function-card">
+                    <h3>choice(list)</h3>
+                    <p>Random element from list</p>
+                    <div class="example-code"><code>LET</code> item: any = choice <code>FROM</code> random [1, 2, 3] _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>shuffle(list)</h3>
+                    <p>Shuffles list in place</p>
+                    <div class="example-code"><code>LET</code> shuffled: list = shuffle <code>FROM</code> random [1, 2,
+                        3] _</div>
+                </div>
+                <div class="function-card">
+                    <h3>sample(list, count)</h3>
+                    <p>Random sample from list</p>
+                    <div class="example-code"><code>LET</code> samples: list = sample <code>FROM</code> random
+                        [1,2,3,4,5] (3)</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="type" class="library-section">
+            <h2>Type Library (<code>type</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>is_int(value)</h3>
+                    <p>Checks if value is integer</p>
+                    <div class="example-code"><code>LET</code> is_int: bool = is_int <code>FROM</code> type 42 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>is_float(value)</h3>
+                    <p>Checks if value is float</p>
+                    <div class="example-code"><code>LET</code> is_float: bool = is_float <code>FROM</code> type 3.14 _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>is_string(value)</h3>
+                    <p>Checks if value is string</p>
+                    <div class="example-code"><code>LET</code> is_str: bool = is_string <code>FROM</code> type "hello" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>to_int(value)</h3>
+                    <p>Converts value to integer</p>
+                    <div class="example-code"><code>LET</code> num: int = to_int <code>FROM</code> type "42" _</div>
+                </div>
+                <div class="function-card">
+                    <h3>to_float(value)</h3>
+                    <p>Converts value to float</p>
+                    <div class="example-code"><code>LET</code> num: float = to_float <code>FROM</code> type "3.14" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>to_string(value)</h3>
+                    <p>Converts value to string</p>
+                    <div class="example-code"><code>LET</code> str: string = to_string <code>FROM</code> type 42 _</div>
+                </div>
+                <div class="function-card">
+                    <h3>is_list(value)</h3>
+                    <p>Checks if value is list</p>
+                    <div class="example-code"><code>LET</code> is_lst: bool = is_list <code>FROM</code> type [1,2,3] _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>is_bool(value)</h3>
+                    <p>Checks if value is boolean</p>
+                    <div class="example-code"><code>LET</code> is_bool: bool = is_bool <code>FROM</code> type true _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>get(value, type)</h3>
+                    <p>Gets value of specified type</p>
+                    <div class="example-code"><code>LET</code> val: any = get <code>FROM</code> type "42" ("int")</div>
+                </div>
+                <div class="function-card">
+                    <h3>to_bool(value)</h3>
+                    <p>Converts value to boolean</p>
+                    <div class="example-code"><code>LET</code> bool_val: bool = to_bool <code>FROM</code> type "true" _
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="list" class="library-section">
+            <h2>List Library (<code>list</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>sort([reverse])</h3>
+                    <p>Sorts list</p>
+                    <div class="example-code"><code>LET</code> sorted: list = sort <code>FROM</code> list [3,1,2] _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>reverse()</h3>
+                    <p>Reverses list</p>
+                    <div class="example-code"><code>LET</code> rev: list = reverse <code>FROM</code> list [1,2,3] _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>map(function)</h3>
+                    <p>Maps function over list</p>
+                    <div class="example-code"><code>LET</code> doubled: list = map <code>FROM</code> list [1,2,3] (x =>
+                        x * 2)</div>
+                </div>
+                <div class="function-card">
+                    <h3>filter(function)</h3>
+                    <p>Filters list by function</p>
+                    <div class="example-code"><code>LET</code> evens: list = filter <code>FROM</code> list [1,2,3,4] (x
+                        => x % 2 == 0)</div>
+                </div>
+                <div class="function-card">
+                    <h3>reduce(function)</h3>
+                    <p>Reduces list using function</p>
+                    <div class="example-code"><code>LET</code> sum: int = reduce <code>FROM</code> list [1,2,3] ((x,y)
+                        => x + y)</div>
+                </div>
+                <div class="function-card">
+                    <h3>find(element)</h3>
+                    <p>Finds index of element</p>
+                    <div class="example-code"><code>LET</code> idx: int = find <code>FROM</code> list [1,2,3] (2)</div>
+                </div>
+                <div class="function-card">
+                    <h3>count(element)</h3>
+                    <p>Counts occurrences of element</p>
+                    <div class="example-code"><code>LET</code> cnt: int = count <code>FROM</code> list [1,2,2,3] (2)
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>sum()</h3>
+                    <p>Sums all elements</p>
+                    <div class="example-code"><code>LET</code> total: int = sum <code>FROM</code> list [1,2,3] _</div>
+                </div>
+                <div class="function-card">
+                    <h3>avg()</h3>
+                    <p>Average of elements</p>
+                    <div class="example-code"><code>LET</code> average: float = avg <code>FROM</code> list [1,2,3] _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>zip(other)</h3>
+                    <p>Combines two lists</p>
+                    <div class="example-code"><code>LET</code> zipped: list = zip <code>FROM</code> list [1,2] ([3,4])
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>enumerate()</h3>
+                    <p>Adds indices to elements</p>
+                    <div class="example-code"><code>LET</code> enum: list = enumerate <code>FROM</code> list ["a","b"] _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>slice(start, end)</h3>
+                    <p>Gets sublist from start to end</p>
+                    <div class="example-code"><code>LET</code> sub: list = slice <code>FROM</code> list [1,2,3,4] (1, 3)
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>concat(other)</h3>
+                    <p>Concatenates two lists</p>
+                    <div class="example-code"><code>LET</code> combined: list = concat <code>FROM</code> list [1,2]
+                        ([3,4])</div>
+                </div>
+                <div class="function-card">
+                    <h3>unique()</h3>
+                    <p>Gets unique elements</p>
+                    <div class="example-code"><code>LET</code> uniq: list = unique <code>FROM</code> list [1,2,2,3] _
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="time" class="library-section">
+            <h2>Time Library (<code>time</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>now()</h3>
+                    <p>Current timestamp</p>
+                    <div class="example-code"><code>LET</code> timestamp: float = now <code>FROM</code> time _ _</div>
+                </div>
+                <div class="function-card">
+                    <h3>format(format)</h3>
+                    <p>Formats time string</p>
+                    <div class="example-code"><code>LET</code> date: string = format <code>FROM</code> time 1704067200
+                        ("%Y-%m-%d")</div>
+                </div>
+                <div class="function-card">
+                    <h3>parse(string, format)</h3>
+                    <p>Parses time string</p>
+                    <div class="example-code"><code>LET</code> ts: float = parse <code>FROM</code> time "2024-01-01"
+                        ("%Y-%m-%d")</div>
+                </div>
+                <div class="function-card">
+                    <h3>sleep(seconds)</h3>
+                    <p>Pauses execution</p>
+                    <div class="example-code"><code>LET</code> _ = sleep <code>FROM</code> time 1.5 _</div>
+                </div>
+            </div>
+
+        </section>
+
+        <section id="file" class="library-section">
+            <h2>File Library (<code>file</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>read()</h3>
+                    <p>Reads file contents</p>
+                    <div class="example-code"><code>LET</code> content: string = read <code>FROM</code> file "test.txt"
+                        _</div>
+                </div>
+                <div class="function-card">
+                    <h3>write(content)</h3>
+                    <p>Writes to file</p>
+                    <div class="example-code"><code>LET</code> success: bool = write <code>FROM</code> file
+                        "test.txt"("Hello")</div>
+                </div>
+                <div class="function-card">
+                    <h3>exists()</h3>
+                    <p>Checks if file exists</p>
+                    <div class="example-code"><code>LET</code> exists: bool = exists <code>FROM</code> file "test.txt" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>delete()</h3>
+                    <p>Deletes file</p>
+                    <div class="example-code"><code>LET</code> deleted: bool = delete <code>FROM</code> file "test.txt"
+                        _</div>
+                </div>
+                <div class="function-card">
+                    <h3>rename(new_name)</h3>
+                    <p>Renames file</p>
+                    <div class="example-code"><code>LET</code> success: bool = rename <code>FROM</code> file "old.txt"
+                        ("new.txt")</div>
+                </div>
+                <div class="function-card">
+                    <h3>size()</h3>
+                    <p>Gets file size in bytes</p>
+                    <div class="example-code"><code>LET</code> size: int = size <code>FROM</code> file "test.txt" _
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="system" class="library-section">
+            <h2>System Library (<code>system</code>)</h2>
+            <div class="function-grid">
+                <div class="function-card">
+                    <h3>args()</h3>
+                    <p>Gets command line arguments</p>
+                    <div class="example-code"><code>LET</code> args: list = args <code>FROM</code> system _ _</div>
+                </div>
+                <div class="function-card">
+                    <h3>env(name)</h3>
+                    <p>Gets environment variable</p>
+                    <div class="example-code"><code>LET</code> path: string = env <code>FROM</code> system "PATH" _
+                    </div>
+                </div>
+                <div class="function-card">
+                    <h3>exec(command)</h3>
+                    <p>Executes system command</p>
+                    <div class="example-code"><code>LET</code> output: string = exec <code>FROM</code> system "echo
+                        Hello" _</div>
+                </div>
+                <div class="function-card">
+                    <h3>exit(code)</h3>
+                    <p>Exits program with status code</p>
+                    <div class="example-code"><code>LET</code> _ = exit <code>FROM</code> system 0 _</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        window.addEventListener('scroll', function () {
+            const btn = document.querySelector('.back-to-top');
+            btn.classList.toggle('visible', window.scrollY > 300);
+        });
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+
+                // Remove active class from all nav links
+                document.querySelectorAll('.library-nav a').forEach(item => item.classList.remove('active'));
+                // Add active class to the clicked link
+                this.classList.add('active');
+            });
+        });
+
+        // Add active class to the first nav item on page load
+        document.querySelector('.library-nav a:first-child').classList.add('active');
+
+        // Search Functionality
+        const searchBar = document.getElementById('search-bar');
+        const functionCards = document.querySelectorAll('.function-card');
+
+        searchBar.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+
+            functionCards.forEach(card => {
+                const title = card.querySelector('h3').textContent.toLowerCase();
+                const description = card.querySelector('p').textContent.toLowerCase();
+
+                if (title.includes(searchTerm) || description.includes(searchTerm)) {
+                    card.style.display = 'block'; // or 'grid' depending on your layout
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Shortcut for Search Bar
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/') {
+                e.preventDefault(); // Prevent the default browser search
+                searchBar.focus();
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -237,6 +237,20 @@ add::(x: int, y: int)->
 LET sum: int = (5, 3) |> add</code></pre>
                 </div>
             </section>
+            <section id="imports">
+                <h2>Imports</h2>
+                <p>Imports in Pepper are done with the <code>IMPORT function FROM module</code> syntax. Imports are local to the .pep file being run.</p>
+                <div class="example">
+                    <pre><code>%% module.pep
+add::(x: int, y: int)->
+    RETURN x y +
+<-int
+
+%% main.pep
+IMPORT add FROM module
+SHOW((5,3) |> add)</code></pre>
+                </div>
+            </section>
 
             <section id="lists">
                 <h2>Lists</h2>
@@ -267,20 +281,158 @@ LET len: int = str [l]      %% Get length</code></pre>
 
             <section id="standard-library">
                 <h2>Standard Library</h2>
-                <p>Pepper includes a standard library with various utility functions.</p>
-                <div class="example">
-                    <h3>String Functions</h3>
-                    <pre><code>LET upper: string = upper FROM string "hello" _
-LET lower: string = lower FROM string "HELLO" _
-LET parts: list = split FROM string "a,b,c" (",")</code></pre>
+                <p>Pepper includes a comprehensive standard library with various utility functions organized into
+                    different namespaces.</p>
 
-                    <h3>Math Functions</h3>
-                    <pre><code>LET root: float = sqrt FROM math 16.0 _
-LET power: float = pow FROM math 2 (3)</code></pre>
+                <h3>String Library (string)</h3>
+                <table class="function-table">
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                        <th>Example</th>
+                    </tr>
+                    <tr>
+                        <td><code>upper()</code></td>
+                        <td>Converts string to uppercase</td>
+                        <td><code>LET up: string = upper FROM string "hello" _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>lower()</code></td>
+                        <td>Converts string to lowercase</td>
+                        <td><code>LET low: string = lower FROM string "HELLO" _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>len()</code></td>
+                        <td>Returns length of string</td>
+                        <td><code>LET length: int = len FROM string "hello" _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>trim()</code></td>
+                        <td>Removes leading/trailing whitespace</td>
+                        <td><code>LET trimmed: string = trim FROM string "  hello  " _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>replace(old, new)</code></td>
+                        <td>Replaces all occurrences of 'old' with 'new'</td>
+                        <td><code>LET replaced: string = replace FROM string "hello" ("l", "w")</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>split(delimiter)</code></td>
+                        <td>Splits string into list by delimiter</td>
+                        <td><code>LET parts: list = split FROM string "a,b,c" (",")</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>join(list)</code></td>
+                        <td>Joins list elements with string as delimiter</td>
+                        <td><code>LET joined: string = join FROM string "," (["a", "b"])</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>contains(substring)</code></td>
+                        <td>Checks if string contains substring</td>
+                        <td><code>LET has: bool = contains FROM string "hello" ("el")</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>starts_with(prefix)</code></td>
+                        <td>Checks if string starts with prefix</td>
+                        <td><code>LET starts: bool = starts_with FROM string "hello" ("he")</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>ends_with(suffix)</code></td>
+                        <td>Checks if string ends with suffix</td>
+                        <td><code>LET ends: bool = ends_with FROM string "hello" ("lo")</code></td>
+                    </tr>
+                </table>
 
-                    <h3>Type Functions</h3>
-                    <pre><code>LET isNum: bool = is_int FROM type 42 _
-LET type: string = get FROM type "hello" _</code></pre>
+                <h3>Math Library (math)</h3>
+                <table class="function-table">
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                        <th>Example</th>
+                    </tr>
+                    <tr>
+                        <td><code>sqrt()</code></td>
+                        <td>Square root</td>
+                        <td><code>LET root: float = sqrt FROM math 16.0 _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>pow(exponent)</code></td>
+                        <td>Power function</td>
+                        <td><code>LET power: float = pow FROM math 2.0 (3)</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>abs()</code></td>
+                        <td>Absolute value</td>
+                        <td><code>LET abs_val: float = abs FROM math -42.5 _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>pi()</code></td>
+                        <td>Returns π constant</td>
+                        <td><code>LET pi: float = pi FROM math _ _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>e()</code></td>
+                        <td>Returns e constant</td>
+                        <td><code>LET e: float = e FROM math _ _</code></td>
+                    </tr>
+                </table>
+
+                <h3>Random Library (random)</h3>
+                <table class="function-table">
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                        <th>Example</th>
+                    </tr>
+                    <tr>
+                        <td><code>rnd()</code></td>
+                        <td>Random float between 0 and 1</td>
+                        <td><code>LET r: float = rnd FROM random _ _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>rnd(stop)</code></td>
+                        <td>Random integer between 0 and stop-1</td>
+                        <td><code>LET n: int = rnd FROM random _ (10)</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>rnd(start, stop)</code></td>
+                        <td>Random integer between start and stop</td>
+                        <td><code>LET d: int = rnd FROM random _ (1, 6)</code></td>
+                    </tr>
+                </table>
+
+                <h3>List Library (list)</h3>
+                <table class="function-table">
+                    <tr>
+                        <th>Function</th>
+                        <th>Description</th>
+                        <th>Example</th>
+                    </tr>
+                    <tr>
+                        <td><code>sort([reverse])</code></td>
+                        <td>Sorts list</td>
+                        <td><code>LET sorted: list = sort FROM list [3,1,2] _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>reverse()</code></td>
+                        <td>Reverses list</td>
+                        <td><code>LET rev: list = reverse FROM list [1,2,3] _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>sum()</code></td>
+                        <td>Sums numeric list</td>
+                        <td><code>LET total: int = sum FROM list [1,2,3] _</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>avg()</code></td>
+                        <td>Averages numeric list</td>
+                        <td><code>LET average: float = avg FROM list [1,2,3] _</code></td>
+                    </tr>
+                </table>
+
+                <div class="tip">
+                    For a complete reference of all standard library functions, see the <a
+                        href="stdlib_reference.html">Standard Library Reference</a>.
                 </div>
             </section>
 
@@ -595,31 +747,31 @@ SHOW("Correct!")
             const toc = document.getElementById('table-of-contents');
             const sections = document.querySelectorAll('main > section');
             toc.innerHTML = ''; // Clear existing content
-        
+
             sections.forEach(section => {
                 if (!section.id || !section.querySelector('h2')) return;
-        
+
                 const sectionItem = createSectionItem(section);
                 const subsections = section.querySelectorAll('h3');
-                
+
                 if (subsections.length > 0) {
                     const subsectionList = createSubsectionList(subsections);
                     sectionItem.appendChild(subsectionList);
                 }
-        
+
                 toc.appendChild(sectionItem);
             });
         }
-        
+
         function createSectionItem(section) {
             const li = document.createElement('li');
             const link = document.createElement('a');
             const heading = section.querySelector('h2');
-            
+
             link.href = `#${section.id}`;
             link.textContent = heading.textContent;
             li.appendChild(link);
-        
+
             if (section.querySelectorAll('h3').length > 0) {
                 li.classList.add('has-subsections');
                 link.addEventListener('click', (e) => {
@@ -633,76 +785,76 @@ SHOW("Correct!")
                     section.scrollIntoView({ behavior: 'smooth' });
                 });
             }
-        
+
             return li;
         }
-        
+
         function createSubsectionList(subsections) {
             const ul = document.createElement('ul');
             ul.className = 'subsections';
-        
+
             subsections.forEach(subsection => {
                 const li = document.createElement('li');
                 const link = document.createElement('a');
-        
+
                 if (!subsection.id) {
                     subsection.id = subsection.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                 }
-        
+
                 link.href = `#${subsection.id}`;
                 link.textContent = subsection.textContent;
-                
+
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
                     subsection.scrollIntoView({ behavior: 'smooth' });
                 });
-        
+
                 li.appendChild(link);
                 ul.appendChild(li);
             });
-        
+
             return ul;
         }
-        
+
         function toggleSection(sectionItem) {
             const wasExpanded = sectionItem.classList.contains('expanded');
-            
+
             // Close all sections first
             document.querySelectorAll('.has-subsections').forEach(item => {
                 if (item !== sectionItem) {
                     item.classList.remove('expanded');
                 }
             });
-        
+
             // Toggle current section
             sectionItem.classList.toggle('expanded', !wasExpanded);
         }
-        
+
         function updateActiveTOCItem() {
             const scrollPosition = window.scrollY + 150;
             let currentSection = null;
             let currentSubsection = null;
-        
+
             // Find current section and subsection
             document.querySelectorAll('main > section').forEach(section => {
-                if (section.offsetTop <= scrollPosition && 
+                if (section.offsetTop <= scrollPosition &&
                     (section.offsetTop + section.offsetHeight) > scrollPosition) {
                     currentSection = section;
-                    
+
                     section.querySelectorAll('h3').forEach(subsection => {
-                        if (subsection.offsetTop <= scrollPosition && 
+                        if (subsection.offsetTop <= scrollPosition &&
                             (subsection.offsetTop + subsection.offsetHeight) > scrollPosition) {
                             currentSubsection = subsection;
                         }
                     });
                 }
             });
-        
+
             // Update active states
             document.querySelectorAll('#table-of-contents a').forEach(link => {
                 link.classList.remove('active');
             });
-        
+
             if (currentSection) {
                 const sectionLink = document.querySelector(`#table-of-contents a[href="#${currentSection.id}"]`);
                 if (sectionLink) {
@@ -713,7 +865,7 @@ SHOW("Correct!")
                     }
                 }
             }
-        
+
             if (currentSubsection) {
                 const subsectionLink = document.querySelector(`#table-of-contents a[href="#${currentSubsection.id}"]`);
                 if (subsectionLink) {
@@ -721,14 +873,14 @@ SHOW("Correct!")
                 }
             }
         }
-        
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             generateTableOfContents();
             window.addEventListener('scroll', debounce(updateActiveTOCItem, 100));
             updateActiveTOCItem();
         });
-        
+
         // Utility function for scroll performance
         function debounce(func, wait) {
             let timeout;
