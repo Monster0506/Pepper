@@ -1,3 +1,4 @@
+from math import exp
 import subprocess
 import argparse
 import sys
@@ -38,13 +39,29 @@ def print_header(text: str, level: int = 1) -> None:
 def print_line_diff(expected: str, actual: str) -> None:
     """Prints a standard unified diff (line-based)."""
     print(f"{Fore.YELLOW}--- Line Diff (Unified) ---{Style.RESET_ALL}")
+    
+    # Split into lines and filter out wildcard matches before diffing
+    expected_lines = expected.splitlines(keepends=True)
+    actual_lines = actual.splitlines(keepends=True)
+    
+    # Create filtered versions for diffing
+    filtered_expected = []
+    filtered_actual = []
+    
+    for i, exp_line in enumerate(expected_lines):
+        if exp_line.strip() != "???":
+            filtered_expected.append(exp_line)
+            if i < len(actual_lines):
+                filtered_actual.append(actual_lines[i])
+    
     diff = difflib.unified_diff(
-        expected.splitlines(keepends=True),
-        actual.splitlines(keepends=True),
+        filtered_expected,
+        filtered_actual,
         fromfile="expected",
         tofile="actual",
-        lineterm="",  # Important for consistent display
+        lineterm="",
     )
+    
     diff_lines = list(diff)
     if not diff_lines:
         print(f"{Fore.GREEN}Outputs are identical (line level).{Style.RESET_ALL}")
@@ -60,118 +77,32 @@ def print_line_diff(expected: str, actual: str) -> None:
         elif line.startswith("@"):
             print(f"{Fore.CYAN}{line}{Style.RESET_ALL}")
         else:
-            # Keep explicit space for context lines for clarity
-            print(
-                f" {line}"
-            )  # Add space for context lines explicitly if difflib doesn't
-    print(f"{Fore.YELLOW}---------------------------{Style.RESET_ALL}")
+            print(f" {line}")
 
-
-def print_char_hunk_diff(
-    expected: str, actual: str | None, context_chars: int = 15
-) -> None:
+def print_char_hunk_diff(expected: str, actual: str | None, context_chars: int = 15) -> None:
     """Prints a character-by-character diff in hunks with context."""
-    print(
-        f"{Fore.YELLOW}--- Character Diff (Hunks, Context: {context_chars}) ---{Style.RESET_ALL}"
-    )
+    print(f"{Fore.YELLOW}--- Character Diff (Hunks, Context: {context_chars}) ---{Style.RESET_ALL}")
 
-    # autojunk=False is important for seeing all differences
-    matcher = difflib.SequenceMatcher(None, expected, actual, autojunk=False)
+    # Split into lines and filter out wildcard matches
+    expected_lines = expected.splitlines(keepends=True)
+    actual_lines = actual.splitlines(keepends=True) if actual else []
+    
+    # Create filtered versions for diffing
+    filtered_expected = []
+    filtered_actual = []
+    
+    for i, exp_line in enumerate(expected_lines):
+        if exp_line.strip() != "???":
+            filtered_expected.append(exp_line)
+            if i < len(actual_lines):
+                filtered_actual.append(actual_lines[i])
+    
+    # Join filtered lines back into strings
+    filtered_expected_str = ''.join(filtered_expected)
+    filtered_actual_str = ''.join(filtered_actual)
 
-    has_diff = False
-    # Use get_grouped_opcodes to get hunks with n context characters around changes
-    for group in matcher.get_grouped_opcodes(n=context_chars):
-        has_diff = True  # Mark that we found differences to print
-        print(
-            f"{Fore.CYAN}--- Hunk (Indices: Exp {group[0][1]}-{group[-1][2]}, Act {group[0][3]}-{group[-1][4]}) ---{Style.RESET_ALL}"
-        )
-
-        for tag, i1, i2, j1, j2 in group:
-            expected_segment = expected[i1:i2]
-            actual_segment = actual[j1:j2] if actual else ""
-
-            # Represent segments line by line for readability
-            expected_lines = (
-                expected_segment.splitlines(keepends=True) if expected_segment else []
-            )
-            actual_lines = (
-                actual_segment.splitlines(keepends=True) if actual_segment else []
-            )
-
-            # Ensure consistent newline handling for segment display logic
-            if expected_segment and not expected_segment.endswith(("\n", "\r")):
-                if not expected_lines:
-                    expected_lines.append("")  # Handle empty segment case
-                expected_lines[-1] += (
-                    Style.DIM + "[\\n]" + Style.RESET_ALL
-                )  # Indicate missing newline visually
-
-            if actual_segment and not actual_segment.endswith(("\n", "\r")):
-                if not actual_lines:
-                    actual_lines.append("")  # Handle empty segment case
-                actual_lines[-1] += (
-                    Style.DIM + "[\\n]" + Style.RESET_ALL
-                )  # Indicate missing newline visually
-
-            if tag == "equal":
-                for line in expected_lines:
-                    # Context lines prefixed with space, no extra color unless needed
-                    print(f"  {line.rstrip()}")
-            elif tag == "replace":
-                # Use SequenceMatcher again *within* the replaced segment for char highlights
-                sub_matcher = difflib.SequenceMatcher(
-                    None, expected_segment, actual_segment, autojunk=False
-                )
-                # Print deleted part with highlights
-                for eline in expected_lines:
-                    line_buffer = f"{Fore.RED}- "
-                    for sub_tag, si1, si2, sj1, sj2 in sub_matcher.get_opcodes():
-                        # Apply highlights based on sub-matcher relative to the *segment*
-                        seg_part = expected_segment[si1:si2]
-                        # This logic needs refinement if replacement spans multiple lines
-                        # For simplicity here, highlighting assumes changes mostly within lines
-                        if sub_tag == "equal":
-                            line_buffer += f"{Style.RESET_ALL}{Fore.RED}{seg_part}"
-                        elif sub_tag == "delete" or sub_tag == "replace":
-                            line_buffer += f"{Style.BRIGHT}{seg_part}{Style.NORMAL}"
-                    line_buffer += Style.RESET_ALL
-                    # Basic split for multiline highlight (may not be perfect alignment)
-                    if eline in line_buffer:  # Crude check if this line had changes
-                        print(line_buffer.replace(eline, eline.rstrip()))
-                    else:
-                        print(
-                            f"{Fore.RED}- {eline.rstrip()}{Style.RESET_ALL}"
-                        )  # Fallback
-
-                # Print added part with highlights
-                for aline in actual_lines:
-                    line_buffer = f"{Fore.GREEN}+ "
-                    for sub_tag, si1, si2, sj1, sj2 in sub_matcher.get_opcodes():
-                        seg_part = actual_segment[sj1:sj2]
-                        if sub_tag == "equal":
-                            line_buffer += f"{Style.RESET_ALL}{Fore.GREEN}{seg_part}"
-                        elif sub_tag == "insert" or sub_tag == "replace":
-                            line_buffer += f"{Style.BRIGHT}{seg_part}{Style.NORMAL}"
-                    line_buffer += Style.RESET_ALL
-                    if aline in line_buffer:
-                        print(line_buffer.replace(aline, aline.rstrip()))
-                    else:
-                        print(
-                            f"{Fore.GREEN}+ {aline.rstrip()}{Style.RESET_ALL}"
-                        )  # Fallback
-
-            elif tag == "delete":
-                for line in expected_lines:
-                    print(f"{Fore.RED}- {line.rstrip()}{Style.RESET_ALL}")
-            elif tag == "insert":
-                for line in actual_lines:
-                    print(f"{Fore.GREEN}+ {line.rstrip()}{Style.RESET_ALL}")
-
-    if not has_diff:
-        print(f"{Fore.GREEN}Outputs are identical (character level).{Style.RESET_ALL}")
-
-    print(f"{Fore.YELLOW}--------------------------------------{Style.RESET_ALL}")
-
+    # Use filtered strings for diff
+    matcher = difflib.SequenceMatcher(None, filtered_expected_str, filtered_actual_str, autojunk=False)
 
 def run_test_process(
     command: List[str], test_file_path: Path, debug=False
@@ -224,7 +155,8 @@ def run_test_process(
 
 def check_test_result(
     run_result: Dict[str, Any],
-    expected_output: Optional[str],  # Expects already normalized expected output
+    # Expects already normalized expected output
+    expected_output: Optional[str],
 ) -> Tuple[bool, str, Optional[str]]:  # Return actual output for diffing
     """
     Checks the test result against expected output and conditions.
@@ -247,7 +179,8 @@ def check_test_result(
         return False, "Test timed out", actual_on_timeout
     if run_result["returncode"] != 0:
         # Return normalized output on non-zero exit
-        actual_on_error = run_result["stdout"].replace("\r\n", "\n").replace("\r", "\n")
+        actual_on_error = run_result["stdout"].replace(
+            "\r\n", "\n").replace("\r", "\n")
         return (
             False,
             f"Exited with non-zero status code: {run_result['returncode']}",
@@ -276,12 +209,15 @@ def check_test_result(
 
     # Case 2: Expected output file exists
     # Compare normalized outputs, stripping trailing whitespace ONLY for the boolean check
-    actual_stripped = actual_output_normalized.strip()
-    expected_stripped = expected_output.strip()  # expected_output is already normalized
+    actual_lines = actual_output_normalized.strip().split('\n')
+    expected_lines = expected_output.strip().split('\n')
 
-    if actual_stripped != expected_stripped:
-        # Output mismatch: return the *normalized but unstripped* actual output for detailed diffing
-        return False, "Output mismatch", actual_output_normalized
+    if len(actual_lines) != len(expected_lines):
+        return False, "Output line count mismatch", actual_output_normalized
+
+    for actual_line, expected_line in zip(actual_lines, expected_lines):
+        if expected_line.strip() != "???" and actual_line.strip() != expected_line.strip():
+            return False, "Output mismatch", actual_output_normalized
 
     # If outputs match after stripping, check for unexpected stderr
     if run_result["stderr"]:
@@ -369,7 +305,8 @@ def main() -> None:
         sys.exit(0)
 
     if args.test_filter:
-        test_files_to_run = [f for f in all_test_files if args.test_filter in f.name]
+        test_files_to_run = [
+            f for f in all_test_files if args.test_filter in f.name]
         if not test_files_to_run:
             print(
                 f"{Fore.RED}No test files found matching filter '{args.test_filter}' in '{args.test_dir}'.{Style.RESET_ALL}"
@@ -394,7 +331,8 @@ def main() -> None:
         test_name = test_file_path.name
         print_header(f"Running: {test_name}", level=2)
 
-        expected_output_path = test_file_path.with_suffix(EXPECTED_OUTPUT_EXTENSION)
+        expected_output_path = test_file_path.with_suffix(
+            EXPECTED_OUTPUT_EXTENSION)
         expected_output_content: Optional[str] = None  # Raw content from file
         normalized_expected_output: Optional[str] = (
             None  # Normalized for comparison/diff
@@ -491,7 +429,8 @@ def main() -> None:
             # Show stdout only if it wasn't already shown via diffs or if it's relevant to non-mismatch errors
             if reason != "Output mismatch" and run_result["stdout"]:
                 print(f"\n{Fore.YELLOW}--- Stdout ---{Style.RESET_ALL}")
-                print(run_result["stdout"].strip())  # Show stripped actual stdout
+                # Show stripped actual stdout
+                print(run_result["stdout"].strip())
 
             # Always show stderr on failure if present
             if run_result["stderr"]:
