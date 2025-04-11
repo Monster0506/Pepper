@@ -31,7 +31,6 @@ def _raise(exception):
 
 class ExpressionEvaluator:
     def __init__(self, variables, functions, interpreter, debug=False):
-        # Added functions
         self.variables = variables
         self.interpreter = interpreter
         self.script_directory: Optional[str] = None
@@ -39,7 +38,6 @@ class ExpressionEvaluator:
         # Keep a reference to functions for function calls within expressions
         self.functions = functions
         self.debug = debug
-        # Removed self.operators as it wasn't used consistently
         self.type_conversions = {
             ("int", "float"): float,
             ("float", "int"): int,
@@ -109,7 +107,6 @@ class ExpressionEvaluator:
                 print("  Evaluating as INPUT")
             return self._evaluate_input(input_match, expected_type)
 
-        # --- NEW: 4. Standard Library Call ---
         stdlib_match = re.fullmatch(
             r"([a-zA-Z_]\w*)\s+FROM\s+([a-zA-Z_]\w*)\s+(.*?)\s*(\(.*\)|\_)$",
             expression,
@@ -119,7 +116,6 @@ class ExpressionEvaluator:
                 print("  Evaluating as Namespaced Standard Library call")
             # Pass the match and expected_type to the new handler
             return self._evaluate_namespaced_stdlib_call(stdlib_match, expected_type)
-        # --- End NEW ---
 
         # 4. Type Conversion Expression
         type_conv_match = re.fullmatch(r"(.+?)\s*:>\s*(\w+)", expression)
@@ -215,8 +211,6 @@ class ExpressionEvaluator:
                     f"Error during function call '{expression}': {e}"
                 ) from e
 
-        # 8. String Concatenation (Only if '+' is present and not handled by RPN)
-        # Be careful not to catch simple additions like "x + 1" if expected is numeric
         if (
             "+" in expression and '"' in expression
         ):  # Basic heuristic: quotes imply potential string concat
@@ -387,8 +381,6 @@ class ExpressionEvaluator:
         """Evaluates literal values (string, bool, int, float) with automatic type conversion,
         using stricter matching for strings."""
 
-        # --- String Literal Check (Stricter) ---
-        # Use regex to ensure ONLY a quoted string (+ optional surrounding whitespace).
         # This pattern handles escaped quotes (\") inside the string.
         lst_match = re.fullmatch(r"\s*\[(.*)\]\s*", expression)
         if lst_match:
@@ -416,7 +408,6 @@ class ExpressionEvaluator:
                 print(f"  Literal evaluated as string: {repr(evaluated_value)}")
             return self._convert_type(evaluated_value, "string", expected_type)
 
-        # --- Boolean Literals ---
         if expression.lower() == "true":
             if self.debug:
                 print("  Literal evaluated as bool: True")
@@ -426,8 +417,6 @@ class ExpressionEvaluator:
                 print("  Literal evaluated as bool: False")
             return self._convert_type(False, "bool", expected_type)
 
-        # --- Numeric Literals (int or float) ---
-        # Use the existing helper functions _is_int, _is_float
         if _is_int(expression):
             value = int(expression)
             if self.debug:
@@ -439,8 +428,6 @@ class ExpressionEvaluator:
                 print(f"  Literal evaluated as float: {value}")
             return self._convert_type(value, "float", expected_type)
 
-        # --- No Literal Match ---
-        # Return None to indicate this expression is not a simple literal.
         return None
 
     def _evaluate_input(self, match, expected_type):
@@ -471,7 +458,6 @@ class ExpressionEvaluator:
             # If no expected type, return as string
             return user_input
 
-    # --- NEW: Standard Library Call Handler ---
     def _evaluate_namespaced_stdlib_call(self, match, expected_type):
         """Evaluates namespaced stdlib calls like 'upper FROM string "hello" _' or 'replace FROM string msg ("old", "new")'."""
         op_name, lib_name, base_expr_str, args_part = match.groups()
@@ -485,7 +471,6 @@ class ExpressionEvaluator:
                 f"  Stdlib Call: Op='{op_name}', Lib='{lib_name}', BaseExpr='{base_expr_str}', ArgsPart='{args_part}'"
             )
 
-        # --- Look up library and operation ---
         if lib_name not in self.stdlib_handler.libraries:
             raise ValueError(f"Unknown standard library namespace: '{lib_name}'")
         library = self.stdlib_handler.libraries[lib_name]
@@ -493,7 +478,6 @@ class ExpressionEvaluator:
             raise ValueError(f"Unknown function '{op_name}' in library '{lib_name}'")
         stdlib_method = library[op_name]
 
-        # --- Evaluate the base expression ---
         base_value = None
         base_type = "void"
         # Handle '_' explicitly for the base expression
@@ -517,7 +501,6 @@ class ExpressionEvaluator:
                 f"    Base '{base_expr_str}' evaluated to: {repr(base_value)} (type: {base_type})"
             )
 
-        # --- Evaluate Arguments ---
         evaluated_args = []
         if args_part == "_":
             if self.debug:
@@ -560,7 +543,6 @@ class ExpressionEvaluator:
                 f"Invalid arguments format: '{args_part}'. Expected '(...)' or '_'."
             )
 
-        # --- Call the specific stdlib method ---
         # Signature: method(base_value, base_type, evaluated_args_list)
         try:
             result = stdlib_method(base_value, base_type, evaluated_args)
@@ -578,8 +560,6 @@ class ExpressionEvaluator:
 
         # Convert the result to the type expected by the outer context
         return self._convert_type(result, result_type, expected_type)
-
-    # --- End REVISED ---
 
     def _evaluate_type_conversion(self, match, expected_type):  # Added expected_type
         """Evaluates explicit type conversion expressions like 'expr :> type'."""
@@ -605,14 +585,12 @@ class ExpressionEvaluator:
         Evaluates string concatenation expressions (+ operator),
         respecting variables, literals, quotes, and basic nesting.
         """
-        # --- Debug Start ---
         if self.debug:
             print(f"  String concat executing on: '{expression}'")
             # Show the specific variables context this evaluator instance is using
             print(
                 f"  String concat evaluator vars ID: {id(self.variables)}, Content: {self.variables}"
             )
-        # --- Debug End ---
 
         result = ""
         parts = []
@@ -621,7 +599,6 @@ class ExpressionEvaluator:
         in_quotes = None  # Track the type of quote (' or ") currently active
         nesting_depth = 0  # Track depth of brackets '[]' and parentheses '()'
 
-        # --- Robust Splitting Logic ---
         while idx < len(expression):
             char = expression[idx]
 
@@ -645,15 +622,12 @@ class ExpressionEvaluator:
                 start = idx + 1  # Start next part after the '+'
 
             idx += 1
-        # --- End of Splitting Loop ---
 
         # Add the final part of the expression (after the last '+' or if no '+')
         parts.append(expression[start:].strip())
 
-        # --- Debug Parts ---
         if self.debug:
             print(f"  String concat parts identified: {parts}")
-        # --- Debug End ---
 
         # Handle case where splitting resulted in empty list (e.g., expression was just "+")
         if not parts:
@@ -661,17 +635,14 @@ class ExpressionEvaluator:
             # Returning "" seems reasonable for an empty/invalid concat expression.
             return ""
 
-        # --- Evaluate Each Part ---
         for part in parts:
             part = part.strip()  # Ensure part itself has no leading/trailing whitespace
             if not part:
                 # Skip empty parts that might result from splitting (e.g., "a + + b")
                 continue
 
-            # --- Debug Part Evaluation ---
             if self.debug:
                 print(f"      String concat evaluating part: '{part}'")
-            # --- Debug End ---
 
             try:
                 # Evaluate the part recursively using the *same* evaluator instance,
@@ -679,12 +650,10 @@ class ExpressionEvaluator:
                 # Evaluate expecting *any* type initially.
                 value = self._evaluate_cached(part, None)
 
-                # --- Debug Part Result ---
                 if self.debug:
                     print(
                         f"      Part '{part}' evaluated to: {repr(value)} (type: {_get_python_type_name(value)})"
                     )
-                # --- Debug End ---
 
                 # Append the string representation of the evaluated value
                 result += str(value)
@@ -699,12 +668,9 @@ class ExpressionEvaluator:
                 raise RuntimeError(
                     f"Unexpected error evaluating part ('{part}') in string concatenation '{expression}': {type(e).__name__}: {e}"
                 ) from e
-        # --- End of Part Evaluation Loop ---
 
-        # --- Debug Final Result ---
         if self.debug:
             print(f"  String concat final result: '{result}'")
-        # --- Debug End ---
 
         return result
 
@@ -715,7 +681,6 @@ class ExpressionEvaluator:
         if self.debug:
             print(f"  Evaluating list literal: {list_str}")
 
-        # Handle empty list explicitly
         if list_str == "[]":
             return []
 
@@ -723,7 +688,6 @@ class ExpressionEvaluator:
         # This is complex and potentially unsafe if not done carefully.
         # A simple substitution might work for basic cases, but fails with nested structures or strings containing variable names.
 
-        # --- Alternative: Manual Parsing (Adapted from original, improved) ---
         content = list_str[1:-1].strip()
         elements = []
         current_element = ""
@@ -960,7 +924,6 @@ class ExpressionEvaluator:
         if not is_valid:
             raise ValueError(error_msg)
 
-        # Evaluate the value to find
         value_to_find = self._evaluate_cached(value_expression.strip(), None)
 
         if self.debug:
@@ -971,9 +934,6 @@ class ExpressionEvaluator:
         collection = self.variables[list_name][0]
 
         try:
-            # Python's index() method works for both lists and strings
-            # We need to handle potential type differences during search
-            # Simple approach: convert items to string for comparison
             found_index = -1
             str_value_to_find = str(value_to_find)
             for i, item in enumerate(collection):
@@ -1109,7 +1069,6 @@ class ExpressionEvaluator:
                     raise TypeError(  # Use TypeError for RPN type issues
                         f"Variable '{token}' is not numeric (type: {var_type}) in RPN expression"
                     )
-            # Added ** and !/ from original code
             elif token in ("+", "-", "*", "/", "%", "**", "!/"):
                 if len(stack) < 2:
                     raise IndexError(  # Use IndexError for stack underflow
