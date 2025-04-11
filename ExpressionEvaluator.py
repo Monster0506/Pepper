@@ -72,58 +72,12 @@ class ExpressionEvaluator:
         }
         self.stdlib_handler = StandardLibrary(self)
 
-    def _parse_argument_list(self, args_content_str: str) -> List[str]:
-        """Parses a comma-separated argument string, respecting brackets, parens, and quotes."""
-        if not args_content_str:
-            return []
-
-        elements = []
-        current_element = ""
-        paren_depth = 0
-        bracket_depth = 0
-        in_quotes = None  # Can be ' or "
-
-        for char in args_content_str:
-            if char in ('"', "'") and in_quotes is None:
-                in_quotes = char
-                current_element += char
-            elif char == in_quotes:
-                in_quotes = None
-                current_element += char
-            elif char == "(" and not in_quotes:
-                paren_depth += 1
-                current_element += char
-            elif char == ")" and not in_quotes:
-                paren_depth -= 1
-                current_element += char
-            elif char == "[" and not in_quotes:
-                bracket_depth += 1
-                current_element += char
-            elif char == "]" and not in_quotes:
-                bracket_depth -= 1
-                current_element += char
-            elif (
-                char == ","
-                and bracket_depth == 0
-                and paren_depth == 0
-                and not in_quotes
-            ):
-                elements.append(current_element.strip())
-                current_element = ""
-            else:
-                current_element += char
-
-        if current_element:
-            elements.append(current_element.strip())
-
-        # Filter out potentially empty strings if there were trailing commas etc.
-        return [elem for elem in elements if elem]
-
     def evaluate(self, expression: str, expected_type: Optional[str]):
         """Main evaluation method that routes to appropriate sub-evaluators"""
         expression = expression.strip()
         if not expression:
             raise ValueError("Cannot evaluate empty expression")
+        self._eval_cache = {}
 
         if self.debug:
             print(
@@ -326,142 +280,108 @@ class ExpressionEvaluator:
         # If nothing else matches, raise Error
         raise ValueError(f"Unable to evaluate expression: '{expression}'")
 
-    # --- NEW: Standard Library Call Handler ---
+    def _parse_argument_list(self, args_content_str: str) -> List[str]:
+        """Parses a comma-separated argument string, respecting brackets, parens, and quotes."""
+        if not args_content_str:
+            return []
 
-    def _evaluate_namespaced_stdlib_call(self, match, expected_type):
-        """Evaluates namespaced stdlib calls like 'upper FROM string "hello" _' or 'replace FROM string msg ("old", "new")'."""
-        op_name, lib_name, base_expr_str, args_part = match.groups()
-        op_name = op_name.lower()
-        lib_name = lib_name.lower()
-        base_expr_str = base_expr_str.strip()
-        args_part = args_part.strip()
+        elements = []
+        current_element = ""
+        paren_depth = 0
+        bracket_depth = 0
+        in_quotes = None  # Can be ' or "
 
-        if self.debug:
-            print(
-                f"  Stdlib Call: Op='{op_name}', Lib='{lib_name}', BaseExpr='{base_expr_str}', ArgsPart='{args_part}'"
-            )
-
-        # --- Look up library and operation ---
-        if lib_name not in self.stdlib_handler.libraries:
-            raise ValueError(f"Unknown standard library namespace: '{lib_name}'")
-        library = self.stdlib_handler.libraries[lib_name]
-        if op_name not in library:
-            raise ValueError(f"Unknown function '{op_name}' in library '{lib_name}'")
-        stdlib_method = library[op_name]
-
-        # --- Evaluate the base expression ---
-        base_value = None
-        base_type = "void"
-        # Handle '_' explicitly for the base expression
-        if base_expr_str == "_":
-            if self.debug:
-                print("    Base expression is '_', treating as void")
-            # Keep base_value = None, base_type = "void"
-        else:
-            try:
-                base_value = self.evaluate(base_expr_str, None)  # Evaluate base expr
-                base_type = _get_python_type_name(base_value)
-            except Exception as e:
-                raise ValueError(
-                    f"Error evaluating base expression '{base_expr_str}' for stdlib function '{lib_name}.{op_name}': {e}"
-                ) from e
-
-        if self.debug:
-            print(
-                f"    Base '{base_expr_str}' evaluated to: {repr(base_value)} (type: {base_type})"
-            )
-
-        # --- Evaluate Arguments ---
-        evaluated_args = []
-        if args_part == "_":
-            if self.debug:
-                print("    No arguments provided ('_').")
-            # evaluated_args remains empty []
-        elif args_part.startswith("(") and args_part.endswith(")"):
-            args_content_str = args_part[1:-1].strip()
-            if not args_content_str:
-                if self.debug:
-                    print("    Empty argument list '()'.")
-                # evaluated_args remains empty []
+        for char in args_content_str:
+            if char in ('"', "'") and in_quotes is None:
+                in_quotes = char
+                current_element += char
+            elif char == in_quotes:
+                in_quotes = None
+                current_element += char
+            elif char == "(" and not in_quotes:
+                paren_depth += 1
+                current_element += char
+            elif char == ")" and not in_quotes:
+                paren_depth -= 1
+                current_element += char
+            elif char == "[" and not in_quotes:
+                bracket_depth += 1
+                current_element += char
+            elif char == "]" and not in_quotes:
+                bracket_depth -= 1
+                current_element += char
+            elif (
+                char == ","
+                and bracket_depth == 0
+                and paren_depth == 0
+                and not in_quotes
+            ):
+                elements.append(current_element.strip())
+                current_element = ""
             else:
-                try:
-                    # Use the robust parser to split argument expressions
-                    arg_expressions = self._parse_argument_list(args_content_str)
-                    if self.debug:
-                        print(f"    Parsed argument expressions: {arg_expressions}")
+                current_element += char
 
-                    for i, arg_expr in enumerate(arg_expressions):
-                        try:
-                            arg_value = self.evaluate(
-                                arg_expr, None
-                            )  # Evaluate each argument expression
-                            evaluated_args.append(arg_value)
-                            if self.debug:
-                                print(
-                                    f"      Arg {i+1} '{arg_expr}' evaluated to: {repr(arg_value)} (type: {_get_python_type_name(arg_value)})"
-                                )
-                        except Exception as e:
-                            raise ValueError(
-                                f"Error evaluating argument {i+1} ('{arg_expr}') for stdlib function '{lib_name}.{op_name}': {e}"
-                            ) from e
-                except Exception as e:  # Catch errors during argument parsing itself
-                    raise ValueError(
-                        f"Error parsing argument list '{args_part}' for stdlib function '{lib_name}.{op_name}': {e}"
-                    ) from e
-        else:
-            # Should not happen with the regex, but safety check
-            raise ValueError(
-                f"Invalid arguments format: '{args_part}'. Expected '(...)' or '_'."
-            )
+        if current_element:
+            elements.append(current_element.strip())
 
-        # --- Call the specific stdlib method ---
-        # Signature: method(base_value, base_type, evaluated_args_list)
-        try:
-            result = stdlib_method(base_value, base_type, evaluated_args)
-        except Exception as e:
-            # Catch errors during the execution of the stdlib function itself
-            raise ValueError(
-                f"Error during execution of stdlib function '{lib_name}.{op_name}': {e}"
-            ) from e
+        # Filter out potentially empty strings if there were trailing commas etc.
+        return [elem for elem in elements if elem]
 
-        result_type = _get_python_type_name(result)
-        if self.debug:
-            print(
-                f"    Stdlib function '{lib_name}.{op_name}' returned: {repr(result)} (type: {result_type})"
-            )
+    def _evaluate_cached(self, expression: str, expected_type: Optional[str]):
+        cache_key = (expression, expected_type)
+        if cache_key in self._eval_cache:
+            if self.debug:
+                print(f"  Cache hit for: {expression} (type: {expected_type})")
+            return self._eval_cache[cache_key]
 
-        # Convert the result to the type expected by the outer context
-        return self._convert_type(result, result_type, expected_type)
+        result = self.evaluate(expression, expected_type)
+        self._eval_cache[cache_key] = result
+        return result
 
-    # --- End REVISED ---
+    def _convert_type(self, value, source_type, target_type) -> Any:
+        """Enhanced type conversion system"""
+        if source_type == target_type or target_type is None or target_type == "any":
+            return value
+        if source_type == "any":  # If source is 'any', try to guess Python type
+            source_type = _get_python_type_name(value)
 
-    def _evaluate_input(self, match, expected_type):
-        """Evaluates input expressions."""
-        prompt = match.group(1)
-        user_input = input(prompt + " ")
-
-        # Try to convert directly to the expected type
-        if expected_type:
+        key = (source_type, target_type)
+        if key in self.type_conversions:
             try:
-                # Use a temporary conversion map based on expected_type
-                temp_conversions = {
-                    "int": int,
-                    "float": float,
-                    "bool": lambda x: x.lower() == "true",
-                    "string": str,
-                    "list": lambda x: [e.strip() for e in self._parse_argument_list(x)],
-                }
-                if expected_type in temp_conversions:
-                    return temp_conversions[expected_type](user_input)
-                else:  # Fallback for unknown types or None
-                    return user_input
-            except ValueError:
+                if self.debug:
+                    print(f"  Converting '{value}' ({source_type}) -> {target_type}")
+                converted = self.type_conversions[key](value)
+                if self.debug:
+                    print(f"    -> Result: '{converted}' ({target_type})")
+                return converted
+            except (ValueError, TypeError) as e:
                 raise ValueError(
-                    f"Input '{user_input}' cannot be converted to expected type {expected_type}"
+                    f"Cannot convert '{value}' from {source_type} to {target_type}: {e}"
                 )
-        else:
-            # If no expected type, return as string
-            return user_input
+        # Allow conversion between int/float implicitly if no specific rule exists
+        elif source_type in ("int", "float") and target_type in ("int", "float"):
+            return float(value) if target_type == "float" else int(value)
+
+        # Allow conversion to bool - generally True unless 0, empty, or False
+        elif target_type == "bool":
+            return bool(value)
+
+        # Allow conversion to string
+        elif target_type == "string":
+            return str(value)
+
+        raise ValueError(
+            f"Unsupported type conversion from {source_type} to {target_type}"
+        )
+
+    def _is_list_or_string(self, name):
+        """Checks if a variable exists and is a list or string."""
+        if name not in self.variables:
+            return False, f"Variable '{name}' not defined."
+        _, var_type = self.variables[name]
+        if var_type not in ("list", "string"):
+            return False, f"Variable '{name}' is type '{var_type}', not list or string."
+        return True, None
 
     def _evaluate_literal(self, expression, expected_type):
         """Evaluates literal values (string, bool, int, float) with automatic type conversion,
@@ -523,41 +443,162 @@ class ExpressionEvaluator:
         # Return None to indicate this expression is not a simple literal.
         return None
 
-    def _convert_type(self, value, source_type, target_type) -> Any:
-        """Enhanced type conversion system"""
-        if source_type == target_type or target_type is None or target_type == "any":
-            return value
-        if source_type == "any":  # If source is 'any', try to guess Python type
-            source_type = _get_python_type_name(value)
+    def _evaluate_input(self, match, expected_type):
+        """Evaluates input expressions."""
+        prompt = match.group(1)
+        user_input = input(prompt + " ")
 
-        key = (source_type, target_type)
-        if key in self.type_conversions:
+        # Try to convert directly to the expected type
+        if expected_type:
             try:
-                if self.debug:
-                    print(f"  Converting '{value}' ({source_type}) -> {target_type}")
-                converted = self.type_conversions[key](value)
-                if self.debug:
-                    print(f"    -> Result: '{converted}' ({target_type})")
-                return converted
-            except (ValueError, TypeError) as e:
+                # Use a temporary conversion map based on expected_type
+                temp_conversions = {
+                    "int": int,
+                    "float": float,
+                    "bool": lambda x: x.lower() == "true",
+                    "string": str,
+                    "list": lambda x: [e.strip() for e in self._parse_argument_list(x)],
+                }
+                if expected_type in temp_conversions:
+                    return temp_conversions[expected_type](user_input)
+                else:  # Fallback for unknown types or None
+                    return user_input
+            except ValueError:
                 raise ValueError(
-                    f"Cannot convert '{value}' from {source_type} to {target_type}: {e}"
+                    f"Input '{user_input}' cannot be converted to expected type {expected_type}"
                 )
-        # Allow conversion between int/float implicitly if no specific rule exists
-        elif source_type in ("int", "float") and target_type in ("int", "float"):
-            return float(value) if target_type == "float" else int(value)
+        else:
+            # If no expected type, return as string
+            return user_input
 
-        # Allow conversion to bool - generally True unless 0, empty, or False
-        elif target_type == "bool":
-            return bool(value)
+    # --- NEW: Standard Library Call Handler ---
+    def _evaluate_namespaced_stdlib_call(self, match, expected_type):
+        """Evaluates namespaced stdlib calls like 'upper FROM string "hello" _' or 'replace FROM string msg ("old", "new")'."""
+        op_name, lib_name, base_expr_str, args_part = match.groups()
+        op_name = op_name.lower()
+        lib_name = lib_name.lower()
+        base_expr_str = base_expr_str.strip()
+        args_part = args_part.strip()
 
-        # Allow conversion to string
-        elif target_type == "string":
-            return str(value)
+        if self.debug:
+            print(
+                f"  Stdlib Call: Op='{op_name}', Lib='{lib_name}', BaseExpr='{base_expr_str}', ArgsPart='{args_part}'"
+            )
 
-        raise ValueError(
-            f"Unsupported type conversion from {source_type} to {target_type}"
-        )
+        # --- Look up library and operation ---
+        if lib_name not in self.stdlib_handler.libraries:
+            raise ValueError(f"Unknown standard library namespace: '{lib_name}'")
+        library = self.stdlib_handler.libraries[lib_name]
+        if op_name not in library:
+            raise ValueError(f"Unknown function '{op_name}' in library '{lib_name}'")
+        stdlib_method = library[op_name]
+
+        # --- Evaluate the base expression ---
+        base_value = None
+        base_type = "void"
+        # Handle '_' explicitly for the base expression
+        if base_expr_str == "_":
+            if self.debug:
+                print("    Base expression is '_', treating as void")
+            # Keep base_value = None, base_type = "void"
+        else:
+            try:
+                base_value = self._evaluate_cached(
+                    base_expr_str, None
+                )  # Evaluate base expr
+                base_type = _get_python_type_name(base_value)
+            except Exception as e:
+                raise ValueError(
+                    f"Error evaluating base expression '{base_expr_str}' for stdlib function '{lib_name}.{op_name}': {e}"
+                ) from e
+
+        if self.debug:
+            print(
+                f"    Base '{base_expr_str}' evaluated to: {repr(base_value)} (type: {base_type})"
+            )
+
+        # --- Evaluate Arguments ---
+        evaluated_args = []
+        if args_part == "_":
+            if self.debug:
+                print("    No arguments provided ('_').")
+            # evaluated_args remains empty []
+        elif args_part.startswith("(") and args_part.endswith(")"):
+            args_content_str = args_part[1:-1].strip()
+            if not args_content_str:
+                if self.debug:
+                    print("    Empty argument list '()'.")
+                # evaluated_args remains empty []
+            else:
+                try:
+                    # Use the robust parser to split argument expressions
+                    arg_expressions = self._parse_argument_list(args_content_str)
+                    if self.debug:
+                        print(f"    Parsed argument expressions: {arg_expressions}")
+
+                    for i, arg_expr in enumerate(arg_expressions):
+                        try:
+                            arg_value = self._evaluate_cached(
+                                arg_expr, None
+                            )  # Evaluate each argument expression
+                            evaluated_args.append(arg_value)
+                            if self.debug:
+                                print(
+                                    f"      Arg {i+1} '{arg_expr}' evaluated to: {repr(arg_value)} (type: {_get_python_type_name(arg_value)})"
+                                )
+                        except Exception as e:
+                            raise ValueError(
+                                f"Error evaluating argument {i+1} ('{arg_expr}') for stdlib function '{lib_name}.{op_name}': {e}"
+                            ) from e
+                except Exception as e:  # Catch errors during argument parsing itself
+                    raise ValueError(
+                        f"Error parsing argument list '{args_part}' for stdlib function '{lib_name}.{op_name}': {e}"
+                    ) from e
+        else:
+            # Should not happen with the regex, but safety check
+            raise ValueError(
+                f"Invalid arguments format: '{args_part}'. Expected '(...)' or '_'."
+            )
+
+        # --- Call the specific stdlib method ---
+        # Signature: method(base_value, base_type, evaluated_args_list)
+        try:
+            result = stdlib_method(base_value, base_type, evaluated_args)
+        except Exception as e:
+            # Catch errors during the execution of the stdlib function itself
+            raise ValueError(
+                f"Error during execution of stdlib function '{lib_name}.{op_name}': {e}"
+            ) from e
+
+        result_type = _get_python_type_name(result)
+        if self.debug:
+            print(
+                f"    Stdlib function '{lib_name}.{op_name}' returned: {repr(result)} (type: {result_type})"
+            )
+
+        # Convert the result to the type expected by the outer context
+        return self._convert_type(result, result_type, expected_type)
+
+    # --- End REVISED ---
+
+    def _evaluate_type_conversion(self, match, expected_type):  # Added expected_type
+        """Evaluates explicit type conversion expressions like 'expr :> type'."""
+        expr_to_convert, target_type = match.groups()
+
+        if target_type not in supported_types:  # Access supported types statically
+            raise ValueError(f"Unsupported target type for conversion: {target_type}")
+
+        # First, evaluate the inner expression without a target type
+        source_value = self._evaluate_cached(expr_to_convert, None)
+        source_type = _get_python_type_name(
+            source_value
+        )  # Get type from evaluated value
+
+        # Now, perform the explicit conversion
+        converted_value = self._convert_type(source_value, source_type, target_type)
+
+        # Finally, convert to the overall expected type if one was provided
+        return self._convert_type(converted_value, target_type, expected_type)
 
     def _evaluate_string_concatenation(self, expression):
         """
@@ -636,7 +677,7 @@ class ExpressionEvaluator:
                 # Evaluate the part recursively using the *same* evaluator instance,
                 # ensuring it uses the correct variable scope (self.variables).
                 # Evaluate expecting *any* type initially.
-                value = self.evaluate(part, None)
+                value = self._evaluate_cached(part, None)
 
                 # --- Debug Part Result ---
                 if self.debug:
@@ -667,14 +708,64 @@ class ExpressionEvaluator:
 
         return result
 
-    def _is_list_or_string(self, name):
-        """Checks if a variable exists and is a list or string."""
-        if name not in self.variables:
-            return False, f"Variable '{name}' not defined."
-        _, var_type = self.variables[name]
-        if var_type not in ("list", "string"):
-            return False, f"Variable '{name}' is type '{var_type}', not list or string."
-        return True, None
+    def _evaluate_list_literal(self, match):
+        """Evaluates list literal expressions like [1, 2, "hello", x] using ast.literal_eval"""
+        list_str = match.group(0)
+
+        if self.debug:
+            print(f"  Evaluating list literal: {list_str}")
+
+        # Handle empty list explicitly
+        if list_str == "[]":
+            return []
+
+        # Need to replace variables within the list string before using literal_eval
+        # This is complex and potentially unsafe if not done carefully.
+        # A simple substitution might work for basic cases, but fails with nested structures or strings containing variable names.
+
+        # --- Alternative: Manual Parsing (Adapted from original, improved) ---
+        content = list_str[1:-1].strip()
+        elements = []
+        current_element = ""
+        bracket_depth = 0
+        in_quotes = None  # Can be ' or "
+
+        for char in content:
+            if char in ('"', "'") and in_quotes is None:
+                in_quotes = char
+                current_element += char
+            elif char == in_quotes:
+                in_quotes = None
+                current_element += char
+            elif char == "[" and not in_quotes:
+                bracket_depth += 1
+                current_element += char
+            elif char == "]" and not in_quotes:
+                bracket_depth -= 1
+                current_element += char
+            elif char == "," and bracket_depth == 0 and not in_quotes:
+                elements.append(current_element.strip())
+                current_element = ""
+            else:
+                current_element += char
+
+        if current_element:
+            elements.append(current_element.strip())
+
+        # Evaluate each element recursively
+        result_list = []
+        for elem_expr in elements:
+            if not elem_expr:
+                continue
+            try:
+                value = self._evaluate_cached(elem_expr, None)  # Evaluate element
+                result_list.append(value)
+            except ValueError as e:
+                raise ValueError(f"Invalid list element expression: '{elem_expr}'. {e}")
+
+        if self.debug:
+            print(f"  Evaluated list literal result: {result_list}")
+        return result_list
 
     def _evaluate_list_operation(self, match):
         """Evaluates list/string append/remove/insert/replace operations. Modifies in-place."""
@@ -692,12 +783,12 @@ class ExpressionEvaluator:
 
         # Evaluate the value expression
         # Evaluate value with no specific type expected initially
-        value = self.evaluate(value_expr, None)
+        value = self._evaluate_cached(value_expr, None)
 
         # Evaluate extra expression (position or replacement value) if present
         extra_value = None
         if extra_expr:
-            extra_value = self.evaluate(extra_expr, None)
+            extra_value = self._evaluate_cached(extra_expr, None)
 
         if collection_type == "list":
             # Operate on a copy then reassign if needed, or modify list directly?
@@ -839,7 +930,7 @@ class ExpressionEvaluator:
             raise ValueError(error_msg)
 
         # Evaluate the index expression, expecting an integer
-        index_val = self.evaluate(index_expression.strip(), "int")
+        index_val = self._evaluate_cached(index_expression.strip(), "int")
         if not isinstance(index_val, int):
             # This should ideally be caught by evaluate requesting "int", but double-check
             raise ValueError(
@@ -870,7 +961,7 @@ class ExpressionEvaluator:
             raise ValueError(error_msg)
 
         # Evaluate the value to find
-        value_to_find = self.evaluate(value_expression.strip(), None)
+        value_to_find = self._evaluate_cached(value_expression.strip(), None)
 
         if self.debug:
             print(
@@ -906,24 +997,87 @@ class ExpressionEvaluator:
                 print(f"    Value '{value_to_find}' not found (error).")
             return 0
 
-    def _evaluate_type_conversion(self, match, expected_type):  # Added expected_type
-        """Evaluates explicit type conversion expressions like 'expr :> type'."""
-        expr_to_convert, target_type = match.groups()
+    def _evaluate_boolean_negation(self, match):
+        """Handles prefix boolean negation '~@ expr'"""
+        sub_expr = match.group(1).strip()
+        # Evaluate the sub-expression, expecting a boolean
+        value = self._evaluate_cached(sub_expr, "bool")
+        return not value
 
-        if target_type not in supported_types:  # Access supported types statically
-            raise ValueError(f"Unsupported target type for conversion: {target_type}")
+    def _evaluate_boolean_expression_infix(self, match):
+        """Evaluates infix boolean expressions (e.g., a && b, x < 5)."""
+        left_expression, operator, right_expression = match.groups()
 
-        # First, evaluate the inner expression without a target type
-        source_value = self.evaluate(expr_to_convert, None)
-        source_type = _get_python_type_name(
-            source_value
-        )  # Get type from evaluated value
+        # Evaluate operands *without* assuming a type initially
+        left_val = self._evaluate_cached(left_expression.strip(), None)
+        right_val = self._evaluate_cached(right_expression.strip(), None)
 
-        # Now, perform the explicit conversion
-        converted_value = self._convert_type(source_value, source_type, target_type)
+        left_type = _get_python_type_name(left_val)
+        right_type = _get_python_type_name(right_val)
 
-        # Finally, convert to the overall expected type if one was provided
-        return self._convert_type(converted_value, target_type, expected_type)
+        if self.debug:
+            print(
+                f"  Boolean Infix: '{left_val}' ({left_type}) {operator} '{right_val}' ({right_type})"
+            )
+
+        # Logical operators (AND, OR) - evaluate operands as boolean
+        if operator == "@$@":  # Logical AND
+            return bool(left_val) and bool(right_val)
+        elif operator == "#$#":  # Logical OR
+            return bool(left_val) or bool(right_val)
+
+        # Comparison operators
+        # Try numeric comparison first if both look numeric or are numeric
+        can_compare_numeric = (
+            left_type in ("int", "float") or _is_numeric_string(left_expression.strip())
+        ) and (
+            right_type in ("int", "float")
+            or _is_numeric_string(right_expression.strip())
+        )
+
+        if can_compare_numeric:
+            try:
+                # Convert to float for comparison to handle int/float mix
+                num_left = self._convert_type(left_val, left_type, "float")
+                num_right = self._convert_type(right_val, right_type, "float")
+
+                if operator == "&&":
+                    return num_left == num_right
+                elif operator == "&$$&":
+                    return num_left != num_right
+                elif operator == "<":
+                    return num_left < num_right
+                elif operator == ">":
+                    return num_left > num_right
+                elif operator == "<=":
+                    return num_left <= num_right
+                elif operator == ">=":
+                    return num_left >= num_right
+                # If we got here with a comparison operator, something's wrong
+                # Fall through to string comparison? Or raise error? Let's fall through for now.
+            except ValueError:
+                # If conversion to float fails, fall through to string comparison
+                pass
+
+        # If not comparable as numbers, compare as strings
+        str_left = str(left_val)
+        str_right = str(right_val)
+
+        if operator == "&&":
+            return str_left == str_right
+        elif operator == "&$$&":
+            return str_left != str_right
+        # For strings, <, >, <=, >= perform lexicographical comparison
+        elif operator == "<":
+            return str_left < str_right
+        elif operator == ">":
+            return str_left > str_right
+        elif operator == "<=":
+            return str_left <= str_right
+        elif operator == ">=":
+            return str_left >= str_right
+        else:
+            raise ValueError(f"Unsupported boolean operator: {operator}")
 
     def _evaluate_rpn(self, expression):
         """Evaluates RPN arithmetic expressions."""
@@ -1005,158 +1159,3 @@ class ExpressionEvaluator:
         if self.debug:
             print(f"  RPN Result: {final_result}")
         return final_result
-
-    def _evaluate_boolean_negation(self, match):
-        """Handles prefix boolean negation '~@ expr'"""
-        sub_expr = match.group(1).strip()
-        # Evaluate the sub-expression, expecting a boolean
-        value = self.evaluate(sub_expr, "bool")
-        return not value
-
-    def _evaluate_boolean_expression_infix(self, match):
-        """Evaluates infix boolean expressions (e.g., a && b, x < 5)."""
-        left_expression, operator, right_expression = match.groups()
-
-        # Evaluate operands *without* assuming a type initially
-        left_val = self.evaluate(left_expression.strip(), None)
-        right_val = self.evaluate(right_expression.strip(), None)
-
-        left_type = _get_python_type_name(left_val)
-        right_type = _get_python_type_name(right_val)
-
-        if self.debug:
-            print(
-                f"  Boolean Infix: '{left_val}' ({left_type}) {operator} '{right_val}' ({right_type})"
-            )
-
-        # Logical operators (AND, OR) - evaluate operands as boolean
-        if operator == "@$@":  # Logical AND
-            return bool(left_val) and bool(right_val)
-        elif operator == "#$#":  # Logical OR
-            return bool(left_val) or bool(right_val)
-
-        # Comparison operators
-        # Try numeric comparison first if both look numeric or are numeric
-        can_compare_numeric = (
-            left_type in ("int", "float") or _is_numeric_string(left_expression.strip())
-        ) and (
-            right_type in ("int", "float")
-            or _is_numeric_string(right_expression.strip())
-        )
-
-        if can_compare_numeric:
-            try:
-                # Convert to float for comparison to handle int/float mix
-                num_left = self._convert_type(left_val, left_type, "float")
-                num_right = self._convert_type(right_val, right_type, "float")
-
-                if operator == "&&":
-                    return num_left == num_right
-                elif operator == "&$$&":
-                    return num_left != num_right
-                elif operator == "<":
-                    return num_left < num_right
-                elif operator == ">":
-                    return num_left > num_right
-                elif operator == "<=":
-                    return num_left <= num_right
-                elif operator == ">=":
-                    return num_left >= num_right
-                # If we got here with a comparison operator, something's wrong
-                # Fall through to string comparison? Or raise error? Let's fall through for now.
-            except ValueError:
-                # If conversion to float fails, fall through to string comparison
-                pass
-
-        # If not comparable as numbers, compare as strings
-        str_left = str(left_val)
-        str_right = str(right_val)
-
-        if operator == "&&":
-            return str_left == str_right
-        elif operator == "&$$&":
-            return str_left != str_right
-        # For strings, <, >, <=, >= perform lexicographical comparison
-        elif operator == "<":
-            return str_left < str_right
-        elif operator == ">":
-            return str_left > str_right
-        elif operator == "<=":
-            return str_left <= str_right
-        elif operator == ">=":
-            return str_left >= str_right
-        else:
-            raise ValueError(f"Unsupported boolean operator: {operator}")
-
-    def _evaluate_list_literal(self, match):
-        """Evaluates list literal expressions like [1, 2, "hello", x] using ast.literal_eval"""
-        list_str = match.group(0)
-
-        if self.debug:
-            print(f"  Evaluating list literal: {list_str}")
-
-        # Handle empty list explicitly
-        if list_str == "[]":
-            return []
-
-        # Need to replace variables within the list string before using literal_eval
-        # This is complex and potentially unsafe if not done carefully.
-        # A simple substitution might work for basic cases, but fails with nested structures or strings containing variable names.
-
-        # --- Alternative: Manual Parsing (Adapted from original, improved) ---
-        content = list_str[1:-1].strip()
-        elements = []
-        current_element = ""
-        bracket_depth = 0
-        in_quotes = None  # Can be ' or "
-
-        for char in content:
-            if char in ('"', "'") and in_quotes is None:
-                in_quotes = char
-                current_element += char
-            elif char == in_quotes:
-                in_quotes = None
-                current_element += char
-            elif char == "[" and not in_quotes:
-                bracket_depth += 1
-                current_element += char
-            elif char == "]" and not in_quotes:
-                bracket_depth -= 1
-                current_element += char
-            elif char == "," and bracket_depth == 0 and not in_quotes:
-                elements.append(current_element.strip())
-                current_element = ""
-            else:
-                current_element += char
-
-        if current_element:
-            elements.append(current_element.strip())
-
-        # Evaluate each element recursively
-        result_list = []
-        for elem_expr in elements:
-            if not elem_expr:
-                continue
-            try:
-                value = self.evaluate(elem_expr, None)  # Evaluate element
-                result_list.append(value)
-            except ValueError as e:
-                raise ValueError(f"Invalid list element expression: '{elem_expr}'. {e}")
-
-        if self.debug:
-            print(f"  Evaluated list literal result: {result_list}")
-        return result_list
-
-        # --- AST Literal Eval (Safer but less flexible) ---
-        # try:
-        #     # ast.literal_eval is safer than eval() but only handles literals
-        #     # It CANNOT handle variables directly. We would need preprocessing.
-        #     # For now, let's stick to the manual parsing which allows variables.
-        #     # evaluated_list = ast.literal_eval(list_str)
-        #     # if isinstance(evaluated_list, list):
-        #     #     return evaluated_list
-        #     # else:
-        #     #     raise ValueError("Expression evaluated to non-list type via literal_eval")
-        #     pass # Placeholder if using ast
-        # except (ValueError, SyntaxError, TypeError) as e:
-        #      raise ValueError(f"Invalid list literal syntax: {list_str}. Error: {e}")
