@@ -1,22 +1,21 @@
-import re
 import ast
 from typing import List, Any, Optional
 import random
 from stdlib import StandardLibrary, _get_python_type_name
-from consts import supported_types
+from consts import supported_types, matchEXPR
 
 
 def _is_int(s):
     if not isinstance(s, str):
         s = str(s)
-    return re.fullmatch(r"-?\d+", s.strip())
+    return matchEXPR(s.strip(), "int")
 
 
 def _is_float(s):
     if not isinstance(s, str):
         s = str(s)
     # Basic check, allows ".5", "5." etc.
-    return re.fullmatch(r"-?(\d+(\.\d*)?|\.\d+)", s.strip())
+    return matchEXPR(s.strip(), "float") or matchEXPR(s.strip(), "numeric")
 
 
 def _is_numeric_string(s):
@@ -83,7 +82,7 @@ class ExpressionEvaluator:
             )
 
         # 1. Direct Variable Lookup
-        if re.fullmatch(r"[a-zA-Z_]\w*", expression) and expression in self.variables:
+        if matchEXPR(expression, "var_name") and expression in self.variables:
             value, var_type = self.variables[expression]
             if self.debug:
                 print(
@@ -101,16 +100,13 @@ class ExpressionEvaluator:
             return literal_result  # _evaluate_literal now handles conversion
 
         # 3. Input Expression
-        input_match = re.fullmatch(r'INPT\("([^"]*)"\)', expression)
+        input_match = matchEXPR(expression, "input")
         if input_match:
             if self.debug:
                 print("  Evaluating as INPUT")
             return self._evaluate_input(input_match, expected_type)
 
-        stdlib_match = re.fullmatch(
-            r"([a-zA-Z_]\w*)\s+FROM\s+([a-zA-Z_]\w*)\s+(.*?)\s*(\(.*\)|\_)$",
-            expression,
-        )
+        stdlib_match = matchEXPR(expression, "stdlib_call")
         if stdlib_match:
             if self.debug:
                 print("  Evaluating as Namespaced Standard Library call")
@@ -118,7 +114,7 @@ class ExpressionEvaluator:
             return self._evaluate_namespaced_stdlib_call(stdlib_match, expected_type)
 
         # 4. Type Conversion Expression
-        type_conv_match = re.fullmatch(r"(.+?)\s*:>\s*(\w+)", expression)
+        type_conv_match = matchEXPR(expression, "type_conversion")
         if type_conv_match:
             if self.debug:
                 print("  Evaluating as type conversion")
@@ -126,9 +122,9 @@ class ExpressionEvaluator:
             return self._evaluate_type_conversion(type_conv_match, expected_type)
 
         # 5. List Literals
-        list_literal_match = re.fullmatch(
-            r"\[.*\]", expression, re.DOTALL
-        )  # Handle multiline
+        list_literal_match = matchEXPR(expression, "list_literal")
+
+        # Handle multiline
         if list_literal_match:
             if self.debug:
                 print("  Evaluating as list literal")
@@ -137,11 +133,7 @@ class ExpressionEvaluator:
             return self._convert_type(raw_list, "list", expected_type)
 
         # 6. List Operations
-        list_op_match = re.fullmatch(
-            # Use \S+ for non-quoted values
-            r'([a-zA-Z_]\w*)\s+("[^"]*"|\S+)\s+\[(a|r|n|p|P)\](?:\s+("[^"]*"|\S+))?',
-            expression,
-        )
+        list_op_match = matchEXPR(expression, "list_operation")
         if list_op_match:
             if self.debug:
                 print("  Evaluating as list operation")
@@ -154,14 +146,14 @@ class ExpressionEvaluator:
                 modified_list, self.variables[list_name][1], expected_type
             )
 
-        list_len_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[l\]", expression)
+        list_len_match = matchEXPR(expression, "list_length")
         if list_len_match:
             if self.debug:
                 print("  Evaluating as list length")
             length = self._evaluate_list_length(list_len_match)
             return self._convert_type(length, "int", expected_type)
 
-        list_rand_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[\?\]", expression)
+        list_rand_match = matchEXPR(expression, "list_random")
         if list_rand_match:
             if self.debug:
                 print("  Evaluating as list random choice")
@@ -171,7 +163,7 @@ class ExpressionEvaluator:
             return self._convert_type(choice, choice_type, expected_type)
 
         # Note: Using 1-based indexing for users
-        list_idx_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[i\]\s+(.+)", expression)
+        list_idx_match = matchEXPR(expression, "list_index")
         if list_idx_match:
             if self.debug:
                 print("  Evaluating as list indexing (1-based)")
@@ -182,7 +174,7 @@ class ExpressionEvaluator:
             return self._convert_type(item, item_type, expected_type)
 
         # Note: Using 1-based indexing for users
-        list_find_match = re.fullmatch(r"([a-zA-Z_]\w*)\s+\[f\]\s+(.+)", expression)
+        list_find_match = matchEXPR(expression, "list_find")
         if list_find_match:
             if self.debug:
                 print("  Evaluating as list find (1-based index, 0 if not found)")
@@ -190,9 +182,7 @@ class ExpressionEvaluator:
             return self._convert_type(index, "int", expected_type)
 
         # 7. Function Call within expression (e.g. LET x:int = (5) |> addOne)
-        func_call_match = re.fullmatch(
-            r"(\(.*?\)|_)\s*\|>\s*([a-zA-Z_]\w*)", expression
-        )
+        func_call_match = matchEXPR(expression, "function_pipe")
         if func_call_match:
             if self.debug:
                 print("  Evaluating as function call within expression")
@@ -225,9 +215,7 @@ class ExpressionEvaluator:
                 pass  # Fall through if not a valid string concat
 
         # 9. Boolean Expressions (Infix)
-        bool_match_infix = re.fullmatch(
-            r"(.+?)\s*(@\$@|#\$#|&&|&\$\$&|[<>]=?)\s*(.+)", expression
-        )
+        bool_match_infix = matchEXPR(expression, "bool_infix")
         if bool_match_infix:
             if self.debug:
                 print("  Evaluating as infix boolean expression")
@@ -235,7 +223,7 @@ class ExpressionEvaluator:
             return self._convert_type(result, "bool", expected_type)
 
         # 10. Boolean Negation (Prefix)
-        bool_match_neg = re.fullmatch(r"~@\s+(.+)", expression)
+        bool_match_neg = matchEXPR(expression, "bool_negation")
         if bool_match_neg:
             if self.debug:
                 print("  Evaluating as boolean negation")
@@ -244,8 +232,8 @@ class ExpressionEvaluator:
 
         # 11. RPN Arithmetic/Numeric (Last resort for things that look numeric)
         # Simple check: contains digits and operators, no quotes?
-        if re.search(r"[\d\.\s+\-*/%?]", expression) and not re.search(
-            r'"', expression
+        if matchEXPR(expression, "maybe_rpn", True) and not matchEXPR(
+            expression, "has_quotes", True
         ):
             try:
                 if self.debug:
@@ -382,11 +370,11 @@ class ExpressionEvaluator:
         using stricter matching for strings."""
 
         # This pattern handles escaped quotes (\") inside the string.
-        lst_match = re.fullmatch(r"\s*\[(.*)\]\s*", expression)
+        lst_match = matchEXPR(expression, "trivial_list_literal")
         if lst_match:
             return None
 
-        str_match = re.fullmatch(r'\s*"((?:[^"\\]|\\.)*)"\s*', expression)
+        str_match = matchEXPR(expression, "string_literal")
         if str_match:
             raw_content = str_match.group(1)  # The content inside the quotes
             try:
