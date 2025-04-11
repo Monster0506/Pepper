@@ -1,4 +1,7 @@
 %% Example usage of the interpreter with new data types
+IMPORT my_func FROM tests/my_module
+
+SHOW((104) |> my_func)
 
 %% Basic variable declarations
 LET x: int = 10

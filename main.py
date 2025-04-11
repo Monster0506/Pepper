@@ -1254,7 +1254,7 @@ class Interpreter:
             with open(module_path, "r") as file:
                 module_lines = file.readlines()
                 if self.debug:
-                    print(f"  [Module Loader] Successfully opened module file.")
+                    print("  [Module Loader] Successfully opened module file.")
                     print(f"  [Module Loader] Module content: {module_lines}")
 
             # Create a temporary interpreter instance for module loading
