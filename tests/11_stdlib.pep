@@ -143,7 +143,7 @@ SHOW(reversed_list)
 %% SHOW(mapped_list)
 %% LET filtered_list: list = filter FROM list [1, 2, 3, 4, 5] (x => x > 2)
 %% SHOW(filtered_list)
-%% LET reduced_val: int = reduce FROM list [1, 2, 3, 4, 5] ((x, y) => x + y)
+%% LET reduced_val: int = reduce FROM list [1, 2, 3, 4, 5] ((x, y) => x y +)
 %% SHOW(reduced_val)
 
 

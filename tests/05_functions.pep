@@ -40,7 +40,7 @@ calculate::(num:float, text:string)->
     RETURN result
 <-string
 
-%% Test imported function
 SHOW((5, "result") |> calculate)
+%% Test imported function
 LET a: int = 5
 SHOW((a) |> my_func)
